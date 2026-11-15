@@ -111,6 +111,53 @@ Les gemmes servent aux skins, aux sauts temporels et à l'éclosion rapide. Elle
 - **Mixage** : bus musique, bruitages et volume global, avec limiteur. La musique baisse sous les fenêtres et se coupe pendant les pubs. Petites variations de hauteur pour éviter la répétition.
 - **Niveaux mesurés** : crête à −3 dBFS, musique autour de −30 dB RMS, mélange chargé autour de −25 dB RMS. Le son se coupe quand l'app passe en arrière-plan. Les curseurs Musique et Bruitages sont dans les Réglages.
 
+## 9. Histoire : « La Lettre d'Or »
+
+**Prémisse.** La poste de Plumeville est fermée depuis dix ans. Son fondateur, Papi Augustin, est parti livrer une mystérieuse Lettre d'Or et n'est jamais revenu. Sa petite-fille Capucine, ta guide, rouvre la poste avec toi. Des morceaux de carte cachés de ville en ville mènent à Augustin.
+
+**Personnages.**
+
+| Personnage | Rôle | Arc |
+|---|---|---|
+| Capucine | Guide, factrice en chef, petite-fille du fondateur | Du doute (« et si on ne le retrouvait jamais ? ») à la joie des retrouvailles |
+| Moustache | Le chat du quartier | De voleur de colis (personne ne lui écrit) à gardien de la poste |
+| Victor Bzzz | PDG de Bzzz Drones, rival | De rival pressé (« les lettres, c'est dépassé ») à partenaire : ses drones ne savent pas où va le cœur des gens |
+| Papi Augustin | Fondateur disparu | Retrouvé au phare de l'île Plume : la Lettre d'Or était adressée au joueur |
+
+**13 chapitres**, déclenchés par la progression :
+
+| Chapitre | Déclencheur |
+|---|---|
+| Prologue | Premier lancement |
+| 1 | Premier chef engagé |
+| 2 à 7 | Ouverture des routes 2 à 6, première éclosion |
+| 8 à 12 | Déménagements 1 à 5 : une ville par étape de la carte |
+
+Le joueur fait un choix à chaque chapitre.
+
+**5 moments d'amitié**, déclenchés par les cœurs : le tampon de Papi, la casquette de Capucine (skin), Moustache gardien, la lettre pour Moustache, le partenariat avec Victor.
+
+**Relations (cœurs, 10 max) avec effet en jeu.**
+
+| Personnage | Comment gagner des cœurs | Effet |
+|---|---|---|
+| Capucine | Choix gentils ; +1 par coffre du jour | +2 % de revenus par cœur |
+| Moustache | Choix ; +1 quand on le chatouille, 2 fois par jour au maximum | À 5 cœurs, il devient gardien : il ne bloque plus les pistes et apporte un cadeau en un toucher |
+| Victor Bzzz | Choix seulement | Partenariat : +15 % de revenus |
+| Fin de l'histoire | — | Bénédiction d'Augustin (+25 %), 200 gemmes, skin « Facteur doré » |
+
+**Présentation.**
+- Boîte de dialogue en bas de l'écran, portrait animé qui change d'expression (joyeux, triste, surpris), plaque de nom colorée.
+- Texte en machine à écrire avec une petite « voix » propre à chaque personnage.
+- Bouton « Passer », qui s'arrête aux choix.
+- Une bannière rappelle le chapitre et l'objectif en cours. Le journal (onglet Empire) affiche les relations et permet de revoir les chapitres, sans regagner de cœurs.
+- Capucine anime aussi le tutoriel.
+
+**Technique.**
+- Les scènes sont des données (`story.js`) : nœuds, choix, conditions et effets.
+- `game.js` contient le moteur.
+- `test.js` vérifie chaque graphe : cibles existantes, une seule sortie par nœud, aucun nœud inaccessible, aucun choix entièrement conditionnel.
+
 ## Lancer et tester
 
 - Tests de l'économie et des textes : `node game/test.js`.

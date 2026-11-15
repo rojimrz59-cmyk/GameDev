@@ -23,6 +23,8 @@
     { id: "aviateur", name: "Aviateur", cost: 120, look: { body: "#D3AE85", wing: "#A07A50", belly: "#F3E3CF", acc: ["gog"] } },
     { id: "royal", name: "Royal", cost: 200, look: { body: "#F6F2FC", wing: "#CFC2EE", belly: "#FFFFFF", acc: ["crown"] } },
     { id: "flamboyant", name: "Flamboyant", cost: 300, look: { body: "#FF8A6B", wing: "#E0563B", belly: "#FFD9CC", acc: ["scarf"] } },
+    { id: "capucine", name: "Casquette de Capucine", cost: null, look: { body: "#E4DAF7", wing: "#B9A6E8", belly: "#FFFFFF", acc: ["postcap", "satchel"] } },
+    { id: "augustin", name: "Facteur doré", cost: null, look: { body: "#FFE7A3", wing: "#E8B84A", belly: "#FFF6D6", acc: ["oldcap", "mustache"] } },
   ];
   const STAR_LOOKS = {
     gerard: { body: "#B9C2D6", wing: "#8E98B3", belly: "#EEF1F8", acc: ["nightcap"] },
@@ -38,6 +40,8 @@
     paillette: { body: "#FFE27A", wing: "#FFC93C", belly: "#FFF6CF", acc: ["tiara"] },
     turbo: { body: "#FF7A59", wing: "#E0503A", belly: "#FFD9CC", acc: ["helmet"] },
   };
+  const CAPUCINE_LOOK = { body: "#E4DAF7", wing: "#B9A6E8", belly: "#FFFFFF", acc: ["postcap", "satchel"] };
+  const AUGUSTIN_LOOK = { body: "#E3E6EE", wing: "#B7BCCB", belly: "#FFFFFF", acc: ["oldcap", "glasses", "mustache"] };
   const GOLD_LOOK = { body: "#FFD54A", wing: "#F2A900", belly: "#FFF2B8", acc: ["crown"] };
   const RARITY_FR = { common: "Commun", rare: "Rare", legendary: "Légendaire" };
   const IAP = [
@@ -58,6 +62,7 @@
       owned: {}, crew: {}, eggs: [], incubator: [], dropped: {}, hatched: 0, stamps: 0, bestCombo: 0, cats: 0,
       lettersRead: 0, lettersWaiting: [], lettersSeen: [], tips: {}, birthYear: 0, kid: false, pauseReminder: false,
       premium: false, ads: { day: "", n: 0 },
+      story: { done: [], hearts: {}, flags: {}, catDay: { day: "", n: 0 } },
     };
     for (const r of E.ROUTES) { s.lv[r.id] = 0; s.mgr[r.id] = false; s.deliveries[r.id] = 0; }
     s.lv.lettres = 1;
@@ -113,6 +118,12 @@
     s.birthYear = I(o.birthYear, y); if (s.birthYear && s.birthYear < y - 120) s.birthYear = 0;
     s.kid = s.birthYear ? y - s.birthYear <= 13 : false;
     s.pauseReminder = !!o.pauseReminder; s.premium = !!o.premium;
+    const st = o.story && typeof o.story === "object" ? o.story : {};
+    const sceneIds = new Set(window.STORY.SCENES.map((x) => x.id));
+    s.story.done = Array.isArray(st.done) ? st.done.filter((id) => sceneIds.has(id)) : [];
+    if (st.hearts && typeof st.hearts === "object") for (const w in window.STORY.CHARACTERS) if (st.hearts[w]) s.story.hearts[w] = I(st.hearts[w], window.STORY.MAX_HEARTS);
+    if (st.flags && typeof st.flags === "object") for (const f of ["partner", "guardian", "ending"]) if (st.flags[f]) s.story.flags[f] = true;
+    if (st.catDay && typeof st.catDay.day === "string") s.story.catDay = { day: st.catDay.day.slice(0, 10), n: I(st.catDay.n, 99) };
     if (o.ads && typeof o.ads.day === "string") s.ads = { day: o.ads.day.slice(0, 10), n: I(o.ads.n, 999) };
     return s;
   }
@@ -171,13 +182,17 @@
   const crewOn = (pid) => Object.keys(S.crew).find((rid) => S.crew[rid] === pid);
   const isAwake = (rid) => !(pigeonOf(rid) && pigeonOf(rid).effect === "sleepy") || now() < (rt.awake[rid] || 0);
   const premiumMult = () => (S.premium ? 2 : 1);
+  function storyMult() {
+    const f = S.story.flags;
+    return (1 + 0.02 * (S.story.hearts.capucine || 0)) * (f.partner ? 1.15 : 1) * (f.ending ? 1.25 : 1);
+  }
   function globalMult() {
     const t = now();
-    return E.featherMult(S.feathers) * premiumMult() * (S.adBoostUntil > t ? E.AD_BOOST.mult : 1) *
+    return E.featherMult(S.feathers) * premiumMult() * storyMult() * (S.adBoostUntil > t ? E.AD_BOOST.mult : 1) *
       (S.goldBoostUntil > t ? E.GOLDEN.boostMult : 1) * (S.comboBoostUntil > t ? E.STAMP.comboBoostMult : 1);
   }
   const ctxFull = () => ({ upgrades: S.up, globalMult: globalMult() });
-  const ctxBase = () => ({ upgrades: S.up, globalMult: E.featherMult(S.feathers) * premiumMult() });
+  const ctxBase = () => ({ upgrades: S.up, globalMult: E.featherMult(S.feathers) * premiumMult() * storyMult() });
   const routeIndex = (id) => E.ROUTES.findIndex((r) => r.id === id);
   const routeById = (id) => E.ROUTES[routeIndex(id)];
   function effTime(r) { const p = pigeonOf(r.id); return r.time / E.crewSpeedMult(p, p && starsOf(p.id)); }
@@ -306,7 +321,7 @@
   }
 
   function routeParty(r, i) {
-    if (!$("#modal").hidden) return;
+    if (!$("#modal").hidden || rt.dlg) return;
     burstAt(null, 80); sfx("party"); stinger(1.5); shake(false);
     openModal(`<div class="hero">${raysSVG()}${loftSVG(i, 0)}</div><h2>Nouvelle route : ${r.name} !</h2>
       <p style="text-align:center">Les pigeons ont mis leurs plus beaux chapeaux pour l'inauguration.</p>
@@ -387,19 +402,20 @@
 
   // ================================================================ cat, letters, golden pigeon
   function spawnCat() {
-    if (rt.cat || S.level < E.CAT.minLevel || document.hidden || !$("#modal").hidden || S.tutorial < 5) return;
+    if (rt.cat || rt.dlg || S.level < E.CAT.minLevel || document.hidden || !$("#modal").hidden || S.tutorial < 5 || !S.story.done.includes("ch3")) return;
     const routes = E.ROUTES.filter((r) => S.lv[r.id] > 0 && !(pigeonOf(r.id) && pigeonOf(r.id).effect === "ninja"))
       .sort((a, b) => routeRate(b) - routeRate(a)).slice(0, 3);
     if (!routes.length) return;
     const r = pick(routes);
     rt.cat = { route: r.id, taps: 0, until: now() + E.CAT.stays * 1000 };
+    if (guardian()) { drawCat(); toast("Moustache, le gardien, passe faire sa ronde. Touche-le !"); sfx("meow"); return; }
     drawCat(); toast(pick(C.CAT_ARRIVE)); sfx("meow"); shake(false);
     firstTime("cat", `<div class="hero">${catSVG()}</div><h2>Le chat Moustache !</h2><p>Il s'installe sur une piste et bloque les livraisons. Touche-le ${E.CAT.taps} fois pour le chatouiller : il s'enfuit en laissant tomber des pièces (et parfois un œuf).</p><div class="btns"><button class="btn btn-buy" data-close>Je m'en occupe !</button></div>`);
   }
   function drawCat() {
     const c = rt.cat && cards[rt.cat.route];
     if (!c || c.cat) return;
-    const d = document.createElement("div"); d.className = "cat"; d.innerHTML = catSVG() + `<span class="cat-n num">${E.CAT.taps - rt.cat.taps}</span>`;
+    const d = document.createElement("div"); d.className = "cat"; d.innerHTML = catSVG(guardian()) + `<span class="cat-n num">${guardian() ? "♥" : E.CAT.taps - rt.cat.taps}</span>`;
     c.lane.appendChild(d); c.cat = d;
   }
   function tickleCat() {
@@ -407,7 +423,7 @@
     cat.taps++; sfx("tickle");
     const el = cards[cat.route] && cards[cat.route].cat;
     if (el) { el.classList.remove("tickle"); void el.offsetWidth; el.classList.add("tickle"); const n = $(".cat-n", el); if (n) n.textContent = Math.max(0, E.CAT.taps - cat.taps); }
-    if (cat.taps >= E.CAT.taps) catLeave(true);
+    if (cat.taps >= E.CAT.taps || guardian()) catLeave(true);
   }
   function catLeave(won) {
     const cat = rt.cat; if (!cat) return;
@@ -416,8 +432,9 @@
     if (c && c.cat) { const el = c.cat; c.cat = null; el.classList.add("leave"); setTimeout(() => el.remove(), 650); }
     if (won) {
       S.cats++;
-      const coins = Math.max(100, Math.floor(totalRate() * E.CAT.coinSeconds));
-      earn(coins); toast(`${pick(C.CAT_LEAVE)} +${fmt(coins)} pièces`); sfx("catLeave"); shake(false);
+      const coins = Math.max(100, Math.floor(totalRate() * E.CAT.coinSeconds * (guardian() ? 1.5 : 1)));
+      earn(coins); toast(`${guardian() ? "Moustache t'apporte un cadeau en ronronnant !" : pick(C.CAT_LEAVE)} +${fmt(coins)} pièces`);
+      if (S.story.done.includes("ch3")) { const dk = dayKey(new Date()); if (S.story.catDay.day !== dk) S.story.catDay = { day: dk, n: 0 }; if (S.story.catDay.n < 2) { S.story.catDay.n++; addHearts("moustache", 1); } } sfx("catLeave"); shake(false);
       if (c) { coinFly(c.lane, 8); burstAt(c.lane, 24); }
       if (Math.random() < E.CAT.eggChance) addEgg("common", "cadeau de Moustache");
     } else toast(pick(C.CAT_BORED));
@@ -463,7 +480,7 @@
   }
 
   function spawnGolden() {
-    if ($("#golden") || S.tutorial < 5 || document.hidden || !$("#modal").hidden) return;
+    if ($("#golden") || rt.dlg || S.tutorial < 5 || document.hidden || !$("#modal").hidden) return;
     const b = document.createElement("button");
     b.id = "golden"; b.setAttribute("aria-label", "Attraper le pigeon doré");
     b.style.setProperty("--dur", E.GOLDEN.visible + "s");
@@ -581,6 +598,7 @@
     const d = dailyInfo(); if (!d.can) return;
     const g = E.DAILY[d.next - 1] * (double ? 2 : 1);
     S.gems += g; S.daily = { last: d.today, streak: d.next };
+    if (S.story.done.includes("prologue")) addHearts("capucine", 1);
     toast(`Coffre du jour ${d.next} : +${g} gemmes`); sfx("milestone"); stinger(1); shake(false); burstAt(null, 70);
     if (E.DAILY_EGGS[d.next]) addEgg(E.DAILY_EGGS[d.next], `coffre du jour ${d.next}`);
     renderTab();
@@ -626,11 +644,12 @@
   }
   function periodic(t) {
     musicIntensity();
+    storyCheck();
     if (t > rt.goldenAt) { rt.goldenAt = t + (E.GOLDEN.minDelay + Math.random() * (E.GOLDEN.maxDelay - E.GOLDEN.minDelay)) * 1000 * goldenFactor(); spawnGolden(); }
     if (!rt.cat && t > rt.catAt) { rt.catAt = t + 60000; spawnCat(); }
     if (rt.cat && t > rt.cat.until) catLeave(false);
     if (t > rt.letterAt) { rt.letterAt = t + (E.LETTERS_CFG.minDelay + Math.random() * (E.LETTERS_CFG.maxDelay - E.LETTERS_CFG.minDelay)) * 1000; newLetter(); }
-    if (S.pauseReminder && t - rt.sessionStart > 45 * 60000 && $("#modal").hidden) {
+    if (S.pauseReminder && t - rt.sessionStart > 45 * 60000 && $("#modal").hidden && !rt.dlg) {
       rt.sessionStart = t;
       openModal(`<div class="hero">${pigeonSVG(STAR_LOOKS.gerard, null, { sleepy: true })}</div><h2>Pause goûter !</h2><p style="text-align:center">${C.PAUSE_TEXT}</p><div class="btns"><button class="btn btn-buy" data-close>D'accord</button></div>`);
     }
@@ -639,7 +658,7 @@
   function step(dt) {
     E.ROUTES.forEach((r, i) => {
       if (S.lv[r.id] <= 0) return;
-      if (rt.cat && rt.cat.route === r.id) return; // Moustache naps on the lane
+      if (rt.cat && rt.cat.route === r.id && !guardian()) return; // Moustache naps on the lane
       if (S.mgr[r.id] && !rt.running[r.id]) { rt.running[r.id] = true; rt.stamped[r.id] = false; }
       if (!rt.running[r.id]) return;
       rt.prog[r.id] += dt / effTime(r);
@@ -690,16 +709,23 @@
     mask: `<path d="M33.5 14q11.5-3 22 0v7q-10.5-3-22 1z" fill="${LINE}"/><path d="M34 16l-7-3M34 19l-7 2" stroke="${LINE}" stroke-width="3" stroke-linecap="round"/>`,
     captain: `<path d="M33 14Q36 3 47 3q9 1 9 10z" fill="#fff" ${O}/><path d="M31 14h27" stroke="${LINE}" stroke-width="3.5" stroke-linecap="round"/><circle cx="45" cy="8" r="2.2" fill="#FFC93C" ${O}/>`,
     tiara: `<path d="M37 10l2-6 3 4 3-6 3 6 3-4 2 6z" fill="#FFC93C" ${O}/><circle cx="45" cy="6" r="1.6" fill="#FF5A9E"/>`,
+    postcap: `<path d="M33 15Q35 4 46 4q9 1 9 9l6 2q-14 2-28 0z" fill="#FF5A4E" ${O}/><circle cx="45.5" cy="9.5" r="2.4" fill="#FFC93C" ${O}/>`,
+    satchel: `<path d="M20 22l17 18" stroke="#8B4A2B" stroke-width="3"/><rect x="31" y="35" width="13" height="10" rx="2.5" fill="#E0503A" ${O}/><path d="M31 38.5h13" stroke="${LINE}" stroke-width="1.2"/>`,
+    oldcap: `<path d="M33 15Q35 4 46 4q9 1 9 9l6 2q-14 2-28 0z" fill="#3E5BA9" ${O}/><path d="M42 8h7" stroke="#FFC93C" stroke-width="2"/>`,
+    mustache: `<path d="M53 24q4 4 9 1-3 5-9 2-5 3-9-2 5 3 9-1z" fill="#fff" ${O}/>`,
     helmet: `<path d="M32.5 19Q33 6 46 6q10 1 10 10l-8 1q-8-1-15.5 2z" fill="#E0503A" ${O}/><path d="M38 9q8-2 15 1" stroke="#fff" stroke-width="2.5" fill="none"/>`,
   };
   function pigeonSVG(look, parcel, opts) {
     opts = opts || {};
     const l = look || SKINS[0].look;
     const acc = l.acc || [];
-    const eye = opts.sleepy
-      ? `<path d="M43.5 18.5q4 3 8 0" fill="none" stroke="${LINE}" stroke-width="2.2" stroke-linecap="round"/>`
-      : `<ellipse cx="47.5" cy="17.5" rx="4.4" ry="5" fill="#fff" ${O}/><circle cx="48.6" cy="18.2" r="2.4" fill="${LINE}"/><circle cx="49.4" cy="17" r=".9" fill="#fff"/>`;
-    const head = acc.filter((a) => a !== "mask" && a !== "scarf" && a !== "shawl").map((a) => ACC[a] || "").join("");
+    const mood = opts.sleepy ? "sleepy" : opts.mood;
+    const eye = mood === "sleepy" ? `<path d="M43.5 18.5q4 3 8 0" fill="none" stroke="${LINE}" stroke-width="2.2" stroke-linecap="round"/>`
+      : mood === "happy" ? `<path d="M43.5 19q4-5 8 0" fill="none" stroke="${LINE}" stroke-width="2.4" stroke-linecap="round"/>`
+      : mood === "surprised" ? `<ellipse cx="47.5" cy="17" rx="5" ry="6.2" fill="#fff" ${O}/><circle cx="48.2" cy="17.4" r="1.8" fill="${LINE}"/><path d="M43 8.5q4.5-3 9 0" fill="none" stroke="${LINE}" stroke-width="1.8" stroke-linecap="round"/>`
+      : `<ellipse cx="47.5" cy="17.5" rx="4.4" ry="5" fill="#fff" ${O}/><circle cx="48.6" cy="18.2" r="2.4" fill="${LINE}"/><circle cx="49.4" cy="17" r=".9" fill="#fff"/>`
+        + (mood === "sad" ? `<path d="M43 10.5l9 2.6" stroke="${LINE}" stroke-width="2" stroke-linecap="round"/><path d="M51 23.5q1.6 3 0 4.4-1.6-1.4 0-4.4z" fill="#7FD3FF" stroke="${LINE}" stroke-width=".8"/>` : "");
+    const head = acc.filter((a) => !["mask", "scarf", "shawl", "satchel"].includes(a)).map((a) => ACC[a] || "").join("");
     const w = opts.w ? ` width="${opts.w}"` : "";
     return `<svg class="pigeon${opts.flying ? " flying" : ""}${opts.cls ? " " + opts.cls : ""}"${w} viewBox="0 0 64 60" aria-hidden="true"><g class="body-g"${l.big ? ' transform="translate(-3 -3) scale(1.1)"' : ""}>
       <path d="M12 30 2 24l2 12 9 2z" fill="${l.wing}" ${O}/>
@@ -709,7 +735,7 @@
       <ellipse cx="32" cy="37" rx="10" ry="7" fill="${l.belly}"/>
       ${acc.includes("shawl") ? ACC.shawl : ""}
       <circle cx="44" cy="20" r="11" fill="${l.body}" ${O}/>
-      ${acc.includes("scarf") ? ACC.scarf : ""}
+      ${acc.includes("scarf") ? ACC.scarf : ""}${acc.includes("satchel") ? ACC.satchel : ""}
       <ellipse cx="49" cy="24.5" rx="3" ry="1.8" fill="#FF8FB1" opacity=".85"/>
       <path d="M54 18l8 3-8 3.5z" fill="#FFA62B" ${O}/>
       ${acc.includes("mask") ? ACC.mask : ""}${eye}${head}
@@ -753,19 +779,19 @@
     if (crack >= 2) s += `<path d="M10 36l6 2 5-4 6 3 4-2" fill="none" stroke="${LINE}" stroke-width="1.8" stroke-linejoin="round"/>`;
     return s + "</svg>";
   }
-  function catSVG() {
+  function catSVG(awake) {
     return `<svg viewBox="0 0 80 56" aria-hidden="true">
       <path class="tail" d="M60 42q16-4 12-20" fill="none" stroke="${LINE}" stroke-width="8" stroke-linecap="round"/><path class="tail" d="M60 42q16-4 12-20" fill="none" stroke="#FFA94D" stroke-width="4.5" stroke-linecap="round"/>
       <ellipse cx="44" cy="40" rx="22" ry="12" fill="#FFA94D" stroke="${LINE}" stroke-width="2.4"/>
       <path d="M40 29v8M48 29v9M56 32v7" stroke="#E07B1F" stroke-width="3" stroke-linecap="round"/>
       <path d="M9 23 10 9l9 9zM24 18l7-9 2 13z" fill="#FFA94D" stroke="${LINE}" stroke-width="2.2" stroke-linejoin="round"/>
       <circle cx="20" cy="31" r="13" fill="#FFA94D" stroke="${LINE}" stroke-width="2.4"/>
-      <path d="M12 30q3-3 6 0M23 30q3-3 6 0" fill="none" stroke="${LINE}" stroke-width="2.2" stroke-linecap="round"/>
+      ${awake ? `<ellipse cx="15" cy="29" rx="3" ry="3.6" fill="#C8F07A" stroke="${LINE}" stroke-width="1.4"/><ellipse cx="26" cy="29" rx="3" ry="3.6" fill="#C8F07A" stroke="${LINE}" stroke-width="1.4"/><path d="M15 26.5v5M26 26.5v5" stroke="${LINE}" stroke-width="1.6"/>` : `<path d="M12 30q3-3 6 0M23 30q3-3 6 0" fill="none" stroke="${LINE}" stroke-width="2.2" stroke-linecap="round"/>`}
       <path d="M19.5 34.5l1.5 1.6 1.6-1.6z" fill="#FF8FB1" stroke="${LINE}" stroke-width="1"/>
       <path d="M21 36.5q-2 3-4 1M21 36.5q2 3 4 1" fill="none" stroke="${LINE}" stroke-width="1.4" stroke-linecap="round"/>
       <path d="M8 34H1M8 37l-6 2M33 34h7M33 37l6 2" stroke="${LINE}" stroke-width="1.2" stroke-linecap="round"/>
       <ellipse cx="30" cy="50" rx="6" ry="3.5" fill="#FFA94D" stroke="${LINE}" stroke-width="2"/>
-      <text x="56" y="14" font-family="Lilita One, sans-serif" font-size="11" fill="#8B5CF6">zzz</text></svg>`;
+      ${awake ? `<path d="M58 6l2-4 2 4-2 3z" fill="#FFC93C" stroke="${LINE}"/>` : '<text x="56" y="14" font-family="Lilita One, sans-serif" font-size="11" fill="#8B5CF6">zzz</text>'}</svg>`;
   }
   function raysSVG() {
     let s = '<svg class="rays" viewBox="0 0 200 200" aria-hidden="true">';
@@ -943,7 +969,7 @@
     for (const r of E.ROUTES) {
       const c = cards[r.id]; if (!c || c.el.hidden) continue;
       if (!c.laneW) c.laneW = c.lane.clientWidth;
-      const fly = (rt.running[r.id] || S.mgr[r.id]) && isAwake(r.id) && !(rt.cat && rt.cat.route === r.id);
+      const fly = (rt.running[r.id] || S.mgr[r.id]) && isAwake(r.id) && !(rt.cat && rt.cat.route === r.id && !guardian());
       const p = rt.running[r.id] || S.mgr[r.id] ? Math.min(rt.prog[r.id], 1) : 0;
       c.pigeon.style.setProperty("--x", (p * Math.max(0, c.laneW - 86)).toFixed(1) + "px");
       c.pigeon.style.setProperty("--y", (fly ? -Math.sin(p * Math.PI) * 7 : 0).toFixed(1) + "px");
@@ -976,6 +1002,7 @@
     $("#dot-upgrades").hidden = !E.UPGRADES.some((u) => !S.up[u.id] && S.coins >= u.cost);
     $("#dot-crew").hidden = !S.incubator.some(eggReady);
     if (S.tutorial > 0 && S.tutorial < 5) placeCoach();
+    refreshStoryBar();
   }
   function switchTab(name) {
     const from = TABS.indexOf(rt.tab), to = TABS.indexOf(name);
@@ -1070,7 +1097,7 @@
         <button class="btn btn-sun" data-claim="${q.id}" ${c < n ? "disabled" : ""}>+${q.gems}${q.egg ? " + œuf" : ""}<small><svg viewBox="0 0 24 24"><use href="#i-gem"/></svg>Récupérer</small></button></div>`;
     }).join("") || `<p>Tous les objectifs sont réussis. Bravo, grand chef des pigeons !</p>`;
     const next = E.xpForLevel(S.level);
-    $("#tab-empire").innerHTML = `
+    $("#tab-empire").innerHTML = storyPanelHTML() + `
       <div class="card panel"><h2>Niveau ${S.level}</h2><p class="num">${fmt(S.xp)} / ${fmt(next)} XP · chaque niveau rapporte ${E.LEVELS.gemsPerLevel} gemmes</p><div class="bar"><i style="--f:${(S.xp / next).toFixed(3)};background:var(--grape)"></i></div></div>
       <div class="card panel"><h2>Coffre du jour</h2><p>Reviens chaque jour : la série monte jusqu'au jour 7, avec un œuf les jours 4 et 7.</p><div class="streak">${streak}</div>
         <div class="row"><button class="btn btn-buy grow" id="dailyBtn" ${d.can ? "" : "disabled"}>${d.can ? "Ouvrir le coffre" : "Reviens demain"}</button>${d.can ? adButton("dailyAd", "×2") : ""}</div></div>
@@ -1085,6 +1112,7 @@
     const db = $("#dailyBtn"); if (db) db.addEventListener("click", () => claimDaily(false));
     const da = $("#dailyAd"); if (da) da.addEventListener("click", () => watchAd("daily_x2", () => claimDaily(true)));
     $("#prestigeBtn").addEventListener("click", confirmPrestige);
+    for (const b of host.querySelectorAll("[data-replay]")) b.addEventListener("click", () => playScene(ST.SCENES.find((s) => s.id === b.dataset.replay), true));
   }
   function confirmPrestige() {
     const gain = prestigeGain();
@@ -1107,6 +1135,7 @@
     const adActive = S.adBoostUntil > now();
     const skins = SKINS.map((k) => {
       const owned = S.skinsOwned.includes(k.id), on = S.skin === k.id;
+      if (k.cost === null && !owned) return `<div class="tile">${pigeonSVG(k.look, "letter")}<div class="title">${k.name}</div><button class="btn btn-ghost" disabled>Débloqué par l'histoire</button></div>`;
       const btn = on ? `<button class="btn btn-ghost" disabled>Équipé</button>` : owned ? `<button class="btn btn-ghost" data-equip="${k.id}">Équiper</button>`
         : `<button class="btn btn-grape" data-skin="${k.id}" data-gems="${k.cost}" ${S.gems < k.cost ? "disabled" : ""}><span class="row" style="gap:4px"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#i-gem"/></svg>${k.cost}</span></button>`;
       return `<div class="tile ${on ? "on" : ""}">${pigeonSVG(k.look, "letter", { flying: on })}<div class="title">${k.name}</div>${btn}</div>`;
@@ -1165,7 +1194,7 @@
   function firstTime(key, html, onMount) {
     if (S.tips[key]) return;
     S.tips[key] = true;
-    const show = () => { if (!$("#modal").hidden) { setTimeout(show, 1500); return; } openModal(html); if (onMount) onMount(); };
+    const show = () => { if (!$("#modal").hidden || rt.dlg) { setTimeout(show, 1500); return; } openModal(html); if (onMount) onMount(); };
     show();
   }
 
@@ -1218,24 +1247,222 @@
     M.init({ childDirected: S.kid, simulate: simulatedAd }).then(() => M.hasPremium()).then((p) => { if (p) S.premium = true; }).catch(() => {});
   }
 
+  // ================================================================ story (data in story.js)
+  const ST = window.STORY;
+  const frTypo = (s) => String(s).replace(/ ([!?:;»])/g, "\u00A0$1").replace(/« /g, "«\u00A0");
+  const guardian = () => !!S.story.flags.guardian;
+  const heartsOf = (w) => S.story.hearts[w] || 0;
+  const charName = (w) => (ST.CHARACTERS[w] ? ST.CHARACTERS[w].name : (E.PIGEONS.find((p) => p.id === w) || {}).name || "");
+  function storyCond(c) {
+    if (!c) return true;
+    if (c.hearts) for (const w in c.hearts) if (heartsOf(w) < c.hearts[w]) return false;
+    if (c.flag && !S.story.flags[c.flag]) return false;
+    return true;
+  }
+  function addHearts(w, n) {
+    const before = heartsOf(w), after = Math.min(ST.MAX_HEARTS, before + n);
+    if (after <= before) return;
+    S.story.hearts[w] = after;
+    toast(`${charName(w)} : +${after - before} cœur${after - before > 1 ? "s" : ""} (${after}/${ST.MAX_HEARTS})`); sfx("heart");
+    if (!reducedMotion) for (let k = 0; k < 3 * (after - before); k++) {
+      const h = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      h.setAttribute("viewBox", "0 0 24 24"); h.setAttribute("class", "heart-fly"); h.innerHTML = '<use href="#i-heart"/>';
+      h.style.left = (35 + Math.random() * 30) + "%"; h.style.animationDelay = (k * 0.12) + "s";
+      h.addEventListener("animationend", () => h.remove()); $("#app").appendChild(h);
+    }
+  }
+  function storyEffect(e) {
+    if (!e || (rt.dlg && rt.dlg.replay)) return;
+    if (e.hearts) for (const w in e.hearts) addHearts(w, e.hearts[w]);
+    if (e.flag && !S.story.flags[e.flag]) {
+      S.story.flags[e.flag] = true;
+      if (e.flag === "partner") toast("Partenariat Bzzz & Pigeons : revenus +15 % pour toujours !");
+      if (e.flag === "guardian") toast("Moustache devient Gardien de la poste !");
+      if (e.flag === "ending") toast("Bénédiction de Papi Augustin : revenus +25 % pour toujours !");
+    }
+    if (e.gems) { S.gems += e.gems; toast(`+${e.gems} gemmes`); }
+    if (e.skin && !S.skinsOwned.includes(e.skin)) { S.skinsOwned.push(e.skin); toast(`Nouveau skin : ${(SKINS.find((k) => k.id === e.skin) || {}).name} (Boutique)`); }
+  }
+  function triggerMet(tr) {
+    switch (tr.type) {
+      case "start": return true;
+      case "manager": return !!S.mgr[tr.route];
+      case "level": return S.lv[tr.route] >= tr.n;
+      case "hatched": return S.hatched >= tr.n;
+      case "prestige": return S.prestiges >= tr.n;
+      case "hearts": return heartsOf(tr.who) >= tr.n && (!tr.after || S.story.done.includes(tr.after)) && (!tr.notFlag || !S.story.flags[tr.notFlag]);
+      default: return false;
+    }
+  }
+  const MAIN = ST.SCENES.filter((s) => s.kind === "main");
+  const nextMain = () => MAIN.find((s) => !S.story.done.includes(s.id));
+  const lastMain = () => [...MAIN].reverse().find((s) => S.story.done.includes(s.id));
+  function storyCheck() {
+    if (rt.dlg || !$("#modal").hidden || !S.birthYear || document.hidden) return;
+    const m = nextMain();
+    if (m && triggerMet(m.trigger)) { playScene(m); return; }
+    if (S.tutorial < 5) return; // friendship moments wait for the end of the tutorial
+    const mo = ST.SCENES.find((s) => s.kind === "moment" && !S.story.done.includes(s.id) && triggerMet(s.trigger));
+    if (mo) playScene(mo);
+  }
+  function playScene(sc, replay) {
+    rt.dlg = { sc, replay: !!replay, fast: false, who: null };
+    const d = $("#dlg"); d.hidden = false; d.classList.remove("out");
+    $("#coach").hidden = true;
+    if (AU) AU.duck("modal", true);
+    $("#dlgTitle").textContent = sc.kind === "main" ? `${sc.chapter ? "Chapitre " + sc.chapter : "Prologue"} · ${sc.title}` : `Moment d'amitié · ${sc.title}`;
+    sfx("open");
+    goNode(sc.start);
+  }
+  function goNode(id) {
+    const dl = rt.dlg; if (!dl) return;
+    const node = dl.sc.nodes[id];
+    dl.node = node;
+    if (node.branch) { const b = node.branch.find((x) => storyCond(x.if)); goNode(b.to); return; }
+    if (node.end) { storyEffect(node.effect); endScene(); return; }
+    storyEffect(node.effect);
+    if (dl.fast && node.next) { goNode(node.next); return; }
+    const who = node.who, box = $("#dlg .dlg-box"), ch = ST.CHARACTERS[who] || { color: "#8B5CF6" };
+    box.classList.toggle("narr", who === "narr");
+    if (dl.who !== who + (node.mood || "")) {
+      const pf = $("#dlgPortrait");
+      pf.innerHTML = who === "narr" ? "" : portraitSVG(who, node.mood);
+      if (dl.who === null || dl.who.indexOf(who) !== 0) { pf.classList.remove("enter"); void pf.offsetWidth; pf.classList.add("enter"); }
+      dl.who = who + (node.mood || "");
+    }
+    const nm = $("#dlgName"); nm.hidden = who === "narr"; nm.textContent = charName(who); nm.style.background = ch.color;
+    $("#dlgChoices").innerHTML = ""; $("#dlgNext").hidden = true;
+    typeText(frTypo(node.text), who, () => showAfter(node));
+  }
+  function typeText(text, who, done) {
+    const dl = rt.dlg, el = $("#dlgText");
+    clearInterval(dl.timer);
+    if (dl.fast || reducedMotion) { el.textContent = text; done(); return; }
+    let i = 0; el.textContent = ""; dl.typing = { text, done };
+    $("#dlgPortrait").classList.add("talking");
+    dl.timer = setInterval(() => {
+      i = Math.min(text.length, i + 1); el.textContent = text.slice(0, i);
+      if (i % 3 === 1 && /\S/.test(text[i - 1])) sfx("voice", { who });
+      if (i >= text.length) finishTyping();
+    }, 26);
+  }
+  function finishTyping() {
+    const dl = rt.dlg; if (!dl || !dl.typing) return;
+    clearInterval(dl.timer); $("#dlgText").textContent = dl.typing.text; $("#dlgPortrait").classList.remove("talking");
+    const done = dl.typing.done; dl.typing = null; done();
+  }
+  function showAfter(node) {
+    const dl = rt.dlg;
+    if (node.choices) {
+      dl.fast = false;
+      const host = $("#dlgChoices");
+      host.innerHTML = node.choices.map((c, k) => storyCond(c.if) ? `<button class="btn ${k ? "btn-sun" : "btn-buy"}" data-k="${k}">${frTypo(c.text)}</button>` : "").join("");
+      for (const b of host.querySelectorAll("[data-k]")) b.addEventListener("click", (ev) => {
+        ev.stopPropagation(); const c = node.choices[+b.dataset.k]; sfx("buy"); storyEffect(c.effect); goNode(c.to);
+      });
+    } else $("#dlgNext").hidden = false;
+  }
+  function dlgTap() {
+    const dl = rt.dlg; if (!dl) return;
+    if (dl.typing) { finishTyping(); return; }
+    if (dl.node && dl.node.next) { sfx("tab"); goNode(dl.node.next); }
+  }
+  function endScene() {
+    const dl = rt.dlg; rt.dlg = null;
+    clearInterval(dl.timer);
+    const d = $("#dlg"); d.classList.add("out"); setTimeout(() => { d.hidden = true; d.classList.remove("out"); }, 260);
+    if (AU) AU.duck("modal", false);
+    if (!dl.replay && !S.story.done.includes(dl.sc.id)) {
+      S.story.done.push(dl.sc.id); saveAll();
+      if (dl.sc.kind === "main" && dl.sc.goal) toast(`Nouvel objectif : ${dl.sc.goal}`);
+      if (dl.sc.id === "ch12") { banner("Fin du chapitre 12 !", "La Lettre d'Or est livrée"); burstAt(null, 160); sfx("prestige"); }
+    }
+    if (S.tutorial < 5) setTutorial(S.tutorial);
+    renderTab(); refreshStoryBar();
+  }
+  $("#dlg").addEventListener("click", dlgTap);
+  $("#dlgSkip").addEventListener("click", (ev) => { ev.stopPropagation(); if (!rt.dlg) return; rt.dlg.fast = true; finishTyping(); if (rt.dlg && rt.dlg.node && rt.dlg.node.next) goNode(rt.dlg.node.next); });
+
+  function portraitSVG(who, mood) {
+    if (who === "capucine") return pigeonSVG(CAPUCINE_LOOK, null, { mood });
+    if (who === "augustin") return pigeonSVG(AUGUSTIN_LOOK, null, { mood });
+    if (who === "moustache") return catFace(mood);
+    if (who === "bzzz") return waspSVG(mood);
+    if (STAR_LOOKS[who]) return pigeonSVG(STAR_LOOKS[who], null, { mood });
+    return "";
+  }
+  function catFace(mood) {
+    const eyes = mood === "happy" ? `<path d="M20 31q4-5 8 0M36 31q4-5 8 0" fill="none" stroke="${LINE}" stroke-width="2.6" stroke-linecap="round"/>`
+      : mood === "sad" ? `<path d="M19 30q5 3 9 0M36 30q5 3 9 0" fill="none" stroke="${LINE}" stroke-width="2.4" stroke-linecap="round"/><path d="M24 33q1.8 3.4 0 5-1.8-1.6 0-5z" fill="#7FD3FF" stroke="${LINE}" stroke-width=".8"/>`
+      : `<ellipse cx="24" cy="30" rx="${mood === "surprised" ? 5 : 4}" ry="${mood === "surprised" ? 6 : 4.6}" fill="#C8F07A" stroke="${LINE}" stroke-width="1.8"/><ellipse cx="40" cy="30" rx="${mood === "surprised" ? 5 : 4}" ry="${mood === "surprised" ? 6 : 4.6}" fill="#C8F07A" stroke="${LINE}" stroke-width="1.8"/><path d="M24 26v8M40 26v8" stroke="${LINE}" stroke-width="2"/>`;
+    return `<svg class="pigeon" viewBox="0 0 64 60" aria-hidden="true">
+      <path d="M12 26 10 4l16 12zM52 26l2-22-16 12z" fill="#FFA94D" stroke="${LINE}" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 20l-1-10 8 7zM50 20l1-10-8 7z" fill="#FF8FB1"/>
+      <ellipse cx="32" cy="34" rx="22" ry="19" fill="#FFA94D" stroke="${LINE}" stroke-width="2.4"/>
+      <path d="M26 16l2 7M32 15v8M38 16l-2 7" stroke="#E07B1F" stroke-width="2.6" stroke-linecap="round"/>
+      <ellipse cx="32" cy="43" rx="10" ry="7" fill="#FFE2C2"/>${eyes}
+      <path d="M30 38h4l-2 2.4z" fill="#FF8FB1" stroke="${LINE}" stroke-width="1"/>
+      <path d="M32 40.5q-2 3.5-5 1.5M32 40.5q2 3.5 5 1.5" fill="none" stroke="${LINE}" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M18 38H5M18 41l-12 3M46 38h13M46 41l12 3" stroke="${LINE}" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+  }
+  function waspSVG(mood) {
+    const mouth = mood === "sad" ? `<path d="M14 40q4-3 8 0" fill="none" stroke="${LINE}" stroke-width="2" stroke-linecap="round"/>`
+      : mood === "surprised" ? `<ellipse cx="18" cy="39" rx="2.2" ry="2.8" fill="${LINE}"/>`
+      : `<path d="M13 38q5 4 10 0" fill="none" stroke="${LINE}" stroke-width="2" stroke-linecap="round"/>`;
+    return `<svg class="pigeon" viewBox="0 0 64 60" aria-hidden="true">
+      <ellipse class="wing" cx="34" cy="14" rx="9" ry="13" fill="#DDF4FF" fill-opacity=".85" stroke="${LINE}" stroke-width="1.8" transform="rotate(-25 34 14)"/>
+      <ellipse class="wing" cx="44" cy="16" rx="8" ry="12" fill="#DDF4FF" fill-opacity=".85" stroke="${LINE}" stroke-width="1.8" transform="rotate(20 44 16)"/>
+      <path d="M57 38l6 2-6 3z" fill="${LINE}"/>
+      <ellipse cx="40" cy="38" rx="17" ry="13" fill="#FFC93C" stroke="${LINE}" stroke-width="2.4"/>
+      <path d="M34 26q-3 12 0 24M42 25.5q-3 12.5 0 25M50 28q-2 10 0 20" stroke="${LINE}" stroke-width="4" fill="none"/>
+      <circle cx="18" cy="32" r="12" fill="#FFC93C" stroke="${LINE}" stroke-width="2.4"/>
+      <path d="M14 21q-4-9 2-12M22 21q2-9 9-10" fill="none" stroke="${LINE}" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="9" r="2" fill="${LINE}"/><circle cx="31" cy="11" r="2" fill="${LINE}"/>
+      <rect x="8" y="26" width="9" height="6" rx="2.5" fill="${LINE}"/><rect x="19" y="26" width="9" height="6" rx="2.5" fill="${LINE}"/><path d="M17 28h2" stroke="${LINE}" stroke-width="2"/>
+      ${mouth}<path d="M21 44l4 3-4 4-3-4z" fill="#FF5A4E" stroke="${LINE}" stroke-width="1.4"/></svg>`;
+  }
+  function refreshStoryBar() {
+    const bar = $("#storyBar"); if (!bar) return;
+    const last = lastMain(), next = nextMain();
+    const key = (last ? last.id : "") + "|" + S.birthYear;
+    if (bar._k === key) return; bar._k = key;
+    bar.hidden = !last;
+    if (!last) return;
+    bar.innerHTML = `<span class="face">${pigeonSVG(CAPUCINE_LOOK, null, { mood: "happy" })}</span><span class="grow"><span class="t1">${last.chapter ? "Chapitre " + last.chapter : "Prologue"} · ${last.title}</span><span class="t2">${next ? "Objectif : " + last.goal : "Histoire terminée. Merci d'avoir joué !"}</span></span>`;
+  }
+  $("#storyBar").addEventListener("click", () => switchTab("empire"));
+  function storyPanelHTML() {
+    const hearts = (w) => { let s = ""; for (let k = 0; k < ST.MAX_HEARTS; k++) s += `<svg viewBox="0 0 24 24" class="hrt${k < heartsOf(w) ? " on" : ""}"><use href="#i-heart"/></svg>`; return s; };
+    const met = { capucine: S.story.done.includes("prologue"), moustache: S.story.done.includes("ch3"), bzzz: S.story.done.includes("ch5") };
+    const rels = ["capucine", "moustache", "bzzz"].filter((w) => met[w]).map((w) => {
+      const c = ST.CHARACTERS[w];
+      const status = w === "capucine" ? `+${heartsOf(w) * 2} % de revenus` : w === "moustache" ? (guardian() ? "Gardien de la poste" : "Gagne des cœurs en le chatouillant (2 par jour)") : (S.story.flags.partner ? "Partenaire : +15 %" : "Pas encore partenaire");
+      return `<div class="row rel"><span class="rel-face">${portraitSVG(w, "happy")}</span><div class="grow"><div class="title">${c.name} <span class="sub">· ${c.role}</span></div><div class="hearts">${hearts(w)}</div><div class="sub">${c.perk}. ${status}.</div></div></div>`;
+    }).join("");
+    const chapters = ST.SCENES.filter((s) => S.story.done.includes(s.id)).map((s) => `<button class="btn btn-ghost chap" data-replay="${s.id}">${s.kind === "main" ? (s.chapter ? "Ch. " + s.chapter : "Prologue") : "Moment"} · ${s.title}</button>`).join("");
+    const next = nextMain(), last = lastMain();
+    return `<div class="card panel"><h2>Notre histoire</h2><p>${next ? `<b>Objectif :</b> ${last ? last.goal : "Commence ta partie"}` : "Tu as livré la Lettre d'Or. Bravo !"}</p>
+      <div class="list">${rels || '<p class="note">Tes amis apparaîtront ici.</p>'}</div>
+      ${chapters ? `<details><summary class="title">Revoir les chapitres (${S.story.done.length})</summary><div class="chaps">${chapters}</div></details>` : ""}</div>`;
+  }
+
   // ================================================================ tutorial coach
   const STEPS = {
-    0: { target: () => cards.lettres && cards.lettres.lane, text: "Touche la piste pour envoyer ton premier pigeon postal !" },
-    1: { target: () => cards.lettres && cards.lettres.lane, text: "Il livre la lettre… chaque livraison rapporte des pièces." },
-    2: { target: () => cards.lettres && cards.lettres.buy, text: "Achète un niveau : plus de pigeons, plus de pièces par livraison." },
-    3: { target: () => cards.lettres && cards.lettres.mgr, text: () => S.coins >= E.ROUTES[0].manager ? "Engage un chef : il envoie les pigeons à ta place, même quand tu n'es pas là !" : `Continue d'envoyer et d'acheter des niveaux. À ${fmt(E.ROUTES[0].manager)} pièces, engage un chef.` },
-    4: { target: () => $('.tabbar [data-tab="empire"]'), text: "Tes objectifs et ton coffre du jour t'attendent dans Empire. Bonne livraison !" },
+    0: { target: () => cards.lettres && cards.lettres.lane, text: "Capucine : Touche la piste pour envoyer notre tout premier pigeon !" },
+    1: { target: () => cards.lettres && cards.lettres.lane, text: "Capucine : Il vole, il vole… et chaque livraison nous rapporte des pièces !" },
+    2: { target: () => cards.lettres && cards.lettres.buy, text: "Capucine : Achète un niveau : plus de pigeons, plus de pièces par livraison !" },
+    3: { target: () => cards.lettres && cards.lettres.mgr, text: () => S.coins >= E.ROUTES[0].manager ? "Capucine : Engage un chef ! Il enverra les pigeons à ta place, même quand tu dors." : `Capucine : Continue d'envoyer et d'acheter. À ${fmt(E.ROUTES[0].manager)} pièces, on pourra engager un chef !` },
+    4: { target: () => $('.tabbar [data-tab="empire"]'), text: "Capucine : Nos objectifs, le coffre du jour et notre histoire sont dans Empire. À tout de suite !" },
   };
   function setTutorial(n) {
     S.tutorial = n; const c = $("#coach");
     if (n >= 5) { c.hidden = true; c.innerHTML = ""; return; }
     c.hidden = false;
-    c.innerHTML = '<svg class="hand" viewBox="0 0 48 48"><use href="#i-hand"/></svg><div class="bubble"><span></span><button id="skipTuto">Passer</button></div>';
+    c.innerHTML = '<svg class="hand" viewBox="0 0 48 48"><use href="#i-hand"/></svg><div class="bubble"><i class="coach-face">' + pigeonSVG(CAPUCINE_LOOK, null, { mood: "happy" }) + '</i><span></span><button id="skipTuto">Passer</button></div>';
+    if (rt.dlg) c.hidden = true;
     $("#skipTuto").addEventListener("click", () => setTutorial(5));
     placeCoach();
   }
   function placeCoach() {
-    const st = STEPS[S.tutorial]; const c = $("#coach"); if (!st || c.hidden) return;
+    const st = STEPS[S.tutorial]; const c = $("#coach"); if (!st || c.hidden || rt.dlg) return;
     const el = st.target(); if (!el) return;
     const app = $("#app").getBoundingClientRect(), r = el.getBoundingClientRect();
     const hand = $(".hand", c), bubble = $(".bubble", c);
@@ -1272,7 +1499,7 @@
     fillIncubator();
     rt.shown = S.coins;
     const away = (Date.now() - S.lastSeen) / 1000;
-    const welcome = () => { if (S.savedAt > 0 && away > 5) handleAway(away, true); setTutorial(S.tutorial); };
+    const welcome = () => { if (S.savedAt > 0 && away > 5) handleAway(away, true); setTutorial(S.tutorial); storyCheck(); };
     rt.lastWall = Date.now();
     if (!S.birthYear) ageGate(welcome); else welcome();
     if (fromCloud) switchTab(rt.tab);
@@ -1299,5 +1526,5 @@
   initCloud();
 
   // Test hook for automated checks (no effect on play).
-  window.__pigeon = { get state() { return S; }, rt, step, E, addEgg, spawnCat, newLetter, laneTap, periodic, banner, shake };
+  window.__pigeon = { get state() { return S; }, rt, step, E, addEgg, spawnCat, newLetter, laneTap, periodic, banner, shake, storyCheck, playScene, addHearts };
 })();

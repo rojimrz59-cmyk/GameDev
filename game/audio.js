@@ -86,6 +86,14 @@
   const notes = (dest, at, list, gap, o) => list.forEach((n, i) => tone(dest, at + i * gap, Object.assign({}, o, { f: midi(n) })));
 
   // ---------------------------------------------------------------- sound effects
+  const VOICES = { // tiny "babble" voices, one per character
+    capucine: { f: 880, type: "triangle", range: 7, slide: 1.12, vol: 0.06 },
+    augustin: { f: 392, type: "triangle", range: 5, slide: 0.94, vol: 0.07 },
+    moustache: { f: 620, type: "sawtooth", range: 6, slide: 1.3, vol: 0.03, lp: 1400 },
+    bzzz: { f: 240, type: "square", range: 3, slide: 1.06, vol: 0.025, lp: 1500 },
+    pigeon: { f: 700, type: "sine", range: 6, slide: 1, vol: 0.06 },
+    narr: null,
+  };
   let buyStreak = 0, buyAt = 0;
   const SFX = {
     coin: (t, o) => { const k = Math.pow(2, ((o && o.route) || 0) * 2 / 12) * vary(0.6); tone(A.sfx, t, { f: 1318 * k, dur: 0.05, vol: 0.07 }); tone(A.sfx, t + 0.045, { f: 1976 * k, dur: 0.09, vol: 0.06 }); },
@@ -115,6 +123,8 @@
     open: (t) => noise(A.sfx, t, { freq: 600, freq2: 2400, dur: 0.18, vol: 0.2, q: 1.5 }),
     party: (t) => { tone(A.sfx, t, { type: "sawtooth", f: 330, f2: 660, glide: 0.25, dur: 0.4, vol: 0.05, lp: 2200, vib: 20, vibRate: 9 }); noise(A.sfx, t + 0.35, { filter: "highpass", freq: 4000, dur: 0.3, vol: 0.08 }); SFX.milestone(t + 0.45); },
     prestige: (t) => { notes(A.sfx, t, [60, 64, 67, 72, 67, 72, 76, 84], 0.11, { type: "square", dur: 0.18, vol: 0.06, lp: 2800 }); notes(A.sfx, t, [48, 55, 60], 0.33, { type: "triangle", dur: 0.4, vol: 0.12 }); noise(A.sfx, t + 0.9, { filter: "highpass", freq: 5000, dur: 0.9, vol: 0.06 }); },
+    voice: (t, o) => { const v = VOICES[o && o.who] || VOICES.pigeon; if (!v) return; const f = v.f * Math.pow(2, (Math.random() * v.range - v.range / 2) / 12); tone(A.sfx, t, { type: v.type, f, f2: f * v.slide, dur: 0.055, vol: v.vol, lp: v.lp }); },
+    heart: (t) => { notes(A.sfx, t, [84, 88, 91], 0.07, { dur: 0.22, vol: 0.06 }); tone(A.sfx, t + 0.2, { type: "triangle", f: midi(96), dur: 0.3, vol: 0.05 }); },
     deny: (t) => notes(A.sfx, t, [64, 60], 0.09, { type: "square", dur: 0.1, vol: 0.04, lp: 900 }),
   };
   function sfx(name, opts) {

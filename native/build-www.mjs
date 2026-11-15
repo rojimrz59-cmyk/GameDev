@@ -10,7 +10,7 @@ const www = join(here, "www");
 rmSync(www, { recursive: true, force: true });
 mkdirSync(www, { recursive: true });
 
-for (const f of ["economy.js", "content.js", "ads.js", "audio.js", "game.js"]) copyFileSync(join(game, f), join(www, f));
+for (const f of ["economy.js", "content.js", "story.js", "ads.js", "audio.js", "game.js"]) copyFileSync(join(game, f), join(www, f));
 
 const capJs = join(here, "node_modules", "@capacitor", "core", "dist", "capacitor.js");
 if (!existsSync(capJs)) { console.error("Run `npm install` first: @capacitor/core is missing."); process.exit(1); }
@@ -25,4 +25,4 @@ const page = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
 ${body}
 </body></html>`;
 writeFileSync(join(www, "index.html"), page);
-console.log("www/ ready:", ["index.html", "capacitor.js", "economy.js", "content.js", "ads.js", "audio.js", "game.js"].join(", "));
+console.log("www/ ready:", ["index.html", "capacitor.js", "economy.js", "content.js", "story.js", "ads.js", "audio.js", "game.js"].join(", "));

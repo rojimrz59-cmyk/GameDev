@@ -64,5 +64,42 @@ require("./content.js");
 const C = globalThis.CONTENT;
 eq("letters have 2 choices", C.LETTERS.every((l) => l.choices.length === 2 && l.choices.every((c) => c.reward && c.outcome)), true);
 eq("letter eggs valid", C.LETTERS.every((l) => l.choices.every((c) => !c.reward.egg || E.EGGS[c.reward.egg])), true);
+// story graph validation
+require("./story.js");
+const STORY = globalThis.STORY;
+const whoOk = (w) => w === "narr" || STORY.CHARACTERS[w] || E.PIGEONS.some((p) => p.id === w);
+const heartWho = (h) => Object.keys(h || {}).every((w) => STORY.CHARACTERS[w] && STORY.CHARACTERS[w].hearts);
+const TRIG = ["start", "manager", "level", "hatched", "prestige", "hearts"];
+const SKIN_IDS = ["capucine", "augustin"]; // story skins declared in game.js SKINS
+const sceneIds = STORY.SCENES.map((s) => s.id);
+eq("scene ids unique", new Set(sceneIds).size, sceneIds.length);
+for (const sc of STORY.SCENES) {
+  const N = sc.nodes, ids = Object.keys(N), errs = [];
+  if (!N[sc.start]) errs.push("start missing");
+  if (!TRIG.includes(sc.trigger.type)) errs.push("bad trigger " + sc.trigger.type);
+  if (sc.trigger.route && !E.ROUTES.some((r) => r.id === sc.trigger.route)) errs.push("bad trigger route");
+  if (sc.trigger.after && !sceneIds.includes(sc.trigger.after)) errs.push("bad after");
+  if (sc.kind === "main" && !sc.goal) errs.push("main scene without goal");
+  const targets = (nd) => [nd.next, ...(nd.choices || []).map((c) => c.to), ...(nd.branch || []).map((b) => b.to)].filter(Boolean);
+  for (const id of ids) {
+    const nd = N[id];
+    const exits = [!!nd.next, !!nd.choices, !!nd.branch, !!nd.end].filter(Boolean).length;
+    if (exits !== 1) errs.push(id + ": needs exactly one exit");
+    for (const to of targets(nd)) if (!N[to]) errs.push(id + " -> missing " + to);
+    if (!nd.end && !nd.branch && (!nd.text || !whoOk(nd.who))) errs.push(id + ": bad speaker/text");
+    if (nd.branch && nd.branch[nd.branch.length - 1].if) errs.push(id + ": branch needs a final fallback");
+    for (const e of [nd.effect, ...(nd.choices || []).map((c) => c.effect)]) if (e) {
+      if (!heartWho(e.hearts)) errs.push(id + ": bad hearts target");
+      if (e.skin && !SKIN_IDS.includes(e.skin)) errs.push(id + ": bad skin");
+    }
+    for (const c of nd.choices || []) if (c.if && !heartWho(c.if.hearts)) errs.push(id + ": bad choice condition");
+    if (nd.choices && !nd.choices.some((c) => !c.if)) errs.push(id + ": every choice is conditional (possible dead end)");
+  }
+  const seen = new Set([sc.start]), stack = [sc.start];
+  while (stack.length) { const nd = N[stack.pop()]; if (!nd) continue; for (const to of targets(nd)) if (!seen.has(to)) { seen.add(to); stack.push(to); } }
+  for (const id of ids) if (!seen.has(id)) errs.push(id + ": unreachable");
+  if (!ids.some((id) => N[id].end && seen.has(id))) errs.push("no reachable end");
+  eq("story " + sc.id + " valid " + errs.join("; "), errs.length, 0);
+}
 console.log(fails ? `${fails} test(s) failed` : "all economy tests passed");
 process.exit(fails ? 1 : 0);
