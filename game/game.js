@@ -1526,5 +1526,6 @@
   initCloud();
 
   // Test hook for automated checks (no effect on play).
-  window.__pigeon = { get state() { return S; }, rt, step, E, addEgg, spawnCat, newLetter, laneTap, periodic, banner, shake, storyCheck, playScene, addHearts };
+  window.__pigeon = { get state() { return S; }, rt, step, E, addEgg, spawnCat, newLetter, laneTap, periodic, banner, shake, storyCheck, playScene, addHearts,
+    spawnGolden, burstAt, switchTab, art: { pigeonSVG, portraitSVG, loftSVG, eggSVG, catSVG, CAPUCINE_LOOK, AUGUSTIN_LOOK, STAR_LOOKS, GOLD_LOOK } };
 })();
