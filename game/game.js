@@ -53,7 +53,7 @@
       version: SAVE_VERSION, coins: 4, earned: 0, runEarned: 0, gems: 0, feathers: 0, prestiges: 0,
       lv: {}, mgr: {}, up: {}, deliveries: {}, xp: 0, level: 1, questsClaimed: [], golden: 0,
       daily: { last: "", streak: 0 }, skin: "classique", skinsOwned: ["classique"],
-      adBoostUntil: 0, goldBoostUntil: 0, comboBoostUntil: 0, lastSeen: Date.now(), savedAt: 0, tutorial: 0, sound: true, multi: "1",
+      adBoostUntil: 0, goldBoostUntil: 0, comboBoostUntil: 0, lastSeen: Date.now(), savedAt: 0, tutorial: 0, musicVol: 0.6, sfxVol: 0.8, multi: "1",
       // v2
       owned: {}, crew: {}, eggs: [], incubator: [], dropped: {}, hatched: 0, stamps: 0, bestCombo: 0, cats: 0,
       lettersRead: 0, lettersWaiting: [], lettersSeen: [], tips: {}, birthYear: 0, kid: false, pauseReminder: false,
@@ -90,7 +90,9 @@
     s.skin = s.skinsOwned.includes(o.skin) ? o.skin : "classique";
     s.adBoostUntil = A(o.adBoostUntil); s.goldBoostUntil = A(o.goldBoostUntil); s.comboBoostUntil = A(o.comboBoostUntil);
     s.lastSeen = A(o.lastSeen) || Date.now(); s.savedAt = A(o.savedAt);
-    s.tutorial = I(o.tutorial, 99); s.sound = o.sound !== false;
+    s.tutorial = I(o.tutorial, 99);
+    const vol = (v, d) => (typeof v === "number" && isFinite(v) ? Math.max(0, Math.min(1, v)) : d);
+    s.musicVol = o.sound === false ? 0 : vol(o.musicVol, 0.6); s.sfxVol = o.sound === false ? 0 : vol(o.sfxVol, 0.8);
     s.multi = ["1", "10", "100", "max"].includes(o.multi) ? o.multi : "1";
     // v2 fields (absent in v1 saves: defaults apply)
     const pids = new Set(E.PIGEONS.map((p) => p.id));
@@ -209,7 +211,7 @@
     const r = routeById(id);
     if (S.lv[id] <= 0) return;
     if (rt.cat && rt.cat.route === id) { tickleCat(); return; }
-    if (!isAwake(id)) { rt.awake[id] = now() + 45000; toast("Gérard se réveille en sursaut. « J'étais pas du tout en train de dormir ! »"); sfx("buy"); return; }
+    if (!isAwake(id)) { rt.awake[id] = now() + 45000; toast("Gérard se réveille en sursaut. « J'étais pas du tout en train de dormir ! »"); sfx("wake"); return; }
     if (!rt.running[id] && !S.mgr[id]) { send(id); return; }
     if (rt.running[id]) tryStamp(r);
   }
@@ -229,12 +231,12 @@
     if (rt.prog[r.id] >= 1 - stampWindow(r)) {
       rt.stamped[r.id] = true; rt.combo++; S.stamps++;
       if (rt.combo > S.bestCombo) S.bestCombo = rt.combo;
-      stampFx(c, rt.combo >= 2 ? `PARFAIT ×${rt.combo}` : "TAMPONNÉ !", false); sfx("stamp");
+      stampFx(c, rt.combo >= 2 ? `PARFAIT ×${rt.combo}` : "TAMPONNÉ !", false); sfx("stamp", { combo: rt.combo });
       if (rt.combo % E.STAMP.comboEvery === 0) {
         S.comboBoostUntil = Math.max(S.comboBoostUntil, now()) + E.STAMP.comboBoostSeconds * 1000;
-        toast(`Super combo ! Revenus ×${E.STAMP.comboBoostMult} pendant ${E.STAMP.comboBoostSeconds} s`); burstAt(c && c.lane, 30); sfx("level");
+        toast(`Super combo ! Revenus ×${E.STAMP.comboBoostMult} pendant ${E.STAMP.comboBoostSeconds} s`); burstAt(c && c.lane, 30); sfx("combo"); shake(false);
       }
-    } else { rt.combo = 0; stampFx(c, "Trop tôt !", true); }
+    } else { rt.combo = 0; stampFx(c, "Trop tôt !", true); sfx("miss"); }
   }
 
   function complete(r, i, n) {
@@ -245,7 +247,7 @@
     if (p && p.effect === "double" && Math.random() < E.crewChance(p, st)) n += 1;
     if (p && p.effect === "lost" && Math.random() < E.crewChance(p, st)) {
       mult *= 5;
-      if (now() - rt.kevinAt > 25000) { rt.kevinAt = now(); toast(pick(C.KEVIN)); }
+      if (now() - rt.kevinAt > 25000) { rt.kevinAt = now(); toast(pick(C.KEVIN)); sfx("kevin"); }
     }
     const gain = deliveryValue(r) * n * mult;
     earn(gain);
@@ -253,16 +255,18 @@
     S.xp += (i + 1) * n * E.crewXpMult(p, st);
     while (S.xp >= E.xpForLevel(S.level)) {
       S.xp -= E.xpForLevel(S.level); S.level++; S.gems += E.LEVELS.gemsPerLevel;
-      toast(`Niveau ${S.level} ! +${E.LEVELS.gemsPerLevel} gemmes`); sfx("level"); burstAt($("#levelChip"), 24);
+      banner(`Niveau ${S.level} !`, `+${E.LEVELS.gemsPerLevel} gemmes`); sfx("level"); stinger(1.2); burstAt($("#levelChip"), 30);
       if (S.level === E.INCUBATOR.bonusSlotLevel) toast("Nouvelle place dans la couveuse !");
     }
     const t = now(), c = cards[r.id];
     if (c && t - rt.popAt[r.id] > 180 && !reducedMotion && rt.tab === "routes") {
-      rt.popAt[r.id] = t; coinPop(c, gain);
+      rt.popAt[r.id] = t; coinPop(c, gain, mult >= 3);
       c.lane.classList.add("delivered"); setTimeout(() => c.lane.classList.remove("delivered"), 260);
+      const d = c.lane.querySelector(".dest").getBoundingClientRect();
+      if (d.bottom > 0 && d.top < window.innerHeight) burstXY(d.left + d.width / 2, d.top + d.height / 2, mult >= 3 ? 14 : 5, [ROUTE_COLORS[i][0], "#FFC93C", "#FFFFFF"]);
       if (mult >= 3) coinFly(c.lane, 4);
     }
-    if (t - rt.coinSoundAt > 140) { rt.coinSoundAt = t; sfx("coin"); }
+    if (t - rt.coinSoundAt > 120) { rt.coinSoundAt = t; sfx("coin", { route: i }); }
     if (S.tutorial === 1) setTutorial(2);
   }
 
@@ -274,7 +278,7 @@
     S.coins -= cost; S.lv[id] += count;
     const gained = E.milestonesReached(S.lv[id]) - E.milestonesReached(before);
     sfx("buy");
-    if (gained > 0 && !wasLocked) { toast(`${r.name} : revenus ×${Math.pow(2, gained)} ! ${pick(C.MILESTONE_JOKES)}`); burstAt(cards[id] && cards[id].art, 26); }
+    if (gained > 0 && !wasLocked) { toast(`${r.name} : revenus ×${Math.pow(2, gained)} ! ${pick(C.MILESTONE_JOKES)}`); burstAt(cards[id] && cards[id].art, 40); sfx("milestone"); stinger(1); shake(false); }
     for (const m in E.MILESTONE_EGGS) {
       const key = id + ":" + m;
       if (before < +m && S.lv[id] >= +m && !S.dropped[key]) { S.dropped[key] = true; addEgg(E.MILESTONE_EGGS[m], `${r.name} niveau ${m}`); }
@@ -288,7 +292,7 @@
     const r = routeById(id);
     if (S.mgr[id] || S.lv[id] <= 0 || S.coins < r.manager) return;
     S.coins -= r.manager; S.mgr[id] = true; rt.running[id] = true;
-    toast(`Chef engagé : ${r.name} livre tout seul !`); sfx("level"); burstAt(cards[id] && cards[id].actions, 20);
+    toast(`Chef engagé : ${r.name} livre tout seul !`); sfx("hire"); burstAt(cards[id] && cards[id].actions, 20);
     if (S.tutorial === 3) setTutorial(4);
     refreshCards(true);
   }
@@ -296,14 +300,14 @@
   function buyUpgrade(id) {
     const u = E.UPGRADES.find((x) => x.id === id);
     if (!u || S.up[id] || S.coins < u.cost) return;
-    S.coins -= u.cost; S.up[id] = true; sfx("level");
+    S.coins -= u.cost; S.up[id] = true; sfx("upgrade"); burstAt(null, 40);
     toast(`${u.name} : ${u.target === "all" ? "toutes les routes" : routeById(u.target).name} ×${u.mult} !`);
     renderTab();
   }
 
   function routeParty(r, i) {
     if (!$("#modal").hidden) return;
-    burstAt(null, 60);
+    burstAt(null, 80); sfx("party"); stinger(1.5); shake(false);
     openModal(`<div class="hero">${raysSVG()}${loftSVG(i, 0)}</div><h2>Nouvelle route : ${r.name} !</h2>
       <p style="text-align:center">Les pigeons ont mis leurs plus beaux chapeaux pour l'inauguration.</p>
       <div class="btns"><button class="btn btn-ghost" data-close>Super !</button>${adButton("partyAd", `Fête : ×2 pendant ${E.ADS.routePartyMinutes} min`)}</div>`);
@@ -319,7 +323,7 @@
     if (free) startEgg(type);
     else if (S.eggs.length < E.INCUBATOR.maxStoredEggs) S.eggs.push(type);
     else { S.gems += 5; toast("Couveuse pleine : l'œuf devient 5 gemmes"); return; }
-    toast(`Tu gagnes un ${E.EGGS[type].name} ! (${reason})`); sfx("level");
+    toast(`Tu gagnes un ${E.EGGS[type].name} ! (${reason})`); sfx("goldenAppear");
     firstTime("egg", `<div class="hero">${raysSVG()}${eggSVG(type, 0)}</div><h2>Un œuf !</h2><p>Les œufs éclosent dans la couveuse (onglet Équipage) et donnent des <b>pigeons stars</b>. Chacun a un défaut rigolo… qui est aussi un super pouvoir. Donne-lui une route pour l'utiliser.</p><div class="btns"><button class="btn btn-buy" id="goCrew">Voir la couveuse</button></div>`,
       () => $("#goCrew").addEventListener("click", () => { closeModal(); switchTab("crew"); }));
   }
@@ -343,7 +347,7 @@
     if (!S.owned[p.id]) { S.owned[p.id] = 1; line = "Nouveau pigeon star !"; }
     else if (S.owned[p.id] < E.MAX_STARS) { S.owned[p.id]++; line = `Encore lui ! ${p.name} gagne une étoile : son pouvoir grandit.`; }
     else { S.gems += E.DUPLICATE_GEMS; line = `${p.name} est déjà au maximum : +${E.DUPLICATE_GEMS} gemmes.`; }
-    fillIncubator(); sfx("hatch"); burstAt(null, 80);
+    fillIncubator(); sfx("hatch"); stinger(1.6); shake(true); burstAt(null, 100);
     const canAssign = !crewOn(p.id) && E.ROUTES.some((r) => S.lv[r.id] > 0);
     openModal(`<div class="hero">${raysSVG()}${pigeonSVG(STAR_LOOKS[p.id], null, { cls: "hatchling" })}</div>
       <h2>${p.name}</h2><p style="text-align:center"><span class="rarity ${p.rarity}">${RARITY_FR[p.rarity]}</span> <span class="stars">${"★".repeat(S.owned[p.id])}</span></p>
@@ -389,7 +393,7 @@
     if (!routes.length) return;
     const r = pick(routes);
     rt.cat = { route: r.id, taps: 0, until: now() + E.CAT.stays * 1000 };
-    drawCat(); toast(pick(C.CAT_ARRIVE)); sfx("meow");
+    drawCat(); toast(pick(C.CAT_ARRIVE)); sfx("meow"); shake(false);
     firstTime("cat", `<div class="hero">${catSVG()}</div><h2>Le chat Moustache !</h2><p>Il s'installe sur une piste et bloque les livraisons. Touche-le ${E.CAT.taps} fois pour le chatouiller : il s'enfuit en laissant tomber des pièces (et parfois un œuf).</p><div class="btns"><button class="btn btn-buy" data-close>Je m'en occupe !</button></div>`);
   }
   function drawCat() {
@@ -400,7 +404,7 @@
   }
   function tickleCat() {
     const cat = rt.cat; if (!cat) return;
-    cat.taps++; sfx("meow");
+    cat.taps++; sfx("tickle");
     const el = cards[cat.route] && cards[cat.route].cat;
     if (el) { el.classList.remove("tickle"); void el.offsetWidth; el.classList.add("tickle"); const n = $(".cat-n", el); if (n) n.textContent = Math.max(0, E.CAT.taps - cat.taps); }
     if (cat.taps >= E.CAT.taps) catLeave(true);
@@ -413,7 +417,7 @@
     if (won) {
       S.cats++;
       const coins = Math.max(100, Math.floor(totalRate() * E.CAT.coinSeconds));
-      earn(coins); toast(`${pick(C.CAT_LEAVE)} +${fmt(coins)} pièces`); sfx("level");
+      earn(coins); toast(`${pick(C.CAT_LEAVE)} +${fmt(coins)} pièces`); sfx("catLeave"); shake(false);
       if (c) { coinFly(c.lane, 8); burstAt(c.lane, 24); }
       if (Math.random() < E.CAT.eggChance) addEgg("common", "cadeau de Moustache");
     } else toast(pick(C.CAT_BORED));
@@ -423,7 +427,7 @@
     if (S.level < E.LETTERS_CFG.minLevel || S.lettersWaiting.length >= E.LETTERS_CFG.maxWaiting) return;
     const pool = C.LETTERS.map((_, i) => i).filter((i) => !S.lettersSeen.includes(i) && !S.lettersWaiting.includes(i));
     const i = pool.length ? pick(pool) : Math.floor(Math.random() * C.LETTERS.length);
-    S.lettersWaiting.push(i); sfx("send");
+    S.lettersWaiting.push(i); sfx("letter");
     toast("Du courrier ! Un client t'a écrit.");
   }
   function letterReward(rw) {
@@ -442,13 +446,14 @@
   function openLetter() {
     if (!S.lettersWaiting.length) return;
     const idx = S.lettersWaiting[0], L = C.LETTERS[idx];
+    sfx("paper");
     openModal(`<h2>Courrier des clients</h2><div class="letter"><div class="from">De : ${L.from}</div><p>${L.text}</p></div>
       <div class="list">${L.choices.map((ch, j) => `<button class="btn ${j ? "btn-sun" : "btn-buy"}" data-ch="${j}">${ch.label}</button>`).join("")}</div>`);
     for (const b of $("#sheet").querySelectorAll("[data-ch]")) b.addEventListener("click", () => {
       const ch = L.choices[+b.dataset.ch];
       S.lettersWaiting.shift(); S.lettersSeen = [...S.lettersSeen, idx].slice(-8); S.lettersRead++;
       const rw = letterReward(ch.reward);
-      const label = giveReward(rw, false); sfx("level"); burstAt(null, 40);
+      const label = giveReward(rw, false); sfx("cash"); burstAt(null, 40);
       const doublable = rw.kind === "coins" || rw.kind === "gems";
       openModal(`<h2>${ch.label}</h2><div class="letter"><p>${ch.outcome}</p></div><p style="text-align:center"><b class="big-stat" style="font-size:24px">${label}</b></p>
         <div class="btns"><button class="btn btn-ghost" data-close>Merci !</button>${doublable ? adButton("letterAd", "Récompense ×2") : ""}</div>`);
@@ -466,10 +471,10 @@
     b.innerHTML = pigeonSVG(GOLD_LOOK, "gem", { flying: true });
     b.addEventListener("click", () => { const r = b.getBoundingClientRect(); b.remove(); catchGolden(r); });
     b.addEventListener("animationend", () => b.remove());
-    $("#app").appendChild(b);
+    $("#app").appendChild(b); sfx("goldenAppear");
   }
   function catchGolden(rect) {
-    S.golden++; sfx("level"); burstXY(rect.left + rect.width / 2, rect.top + rect.height / 2, 40);
+    S.golden++; sfx("goldenCatch"); shake(false); burstXY(rect.left + rect.width / 2, rect.top + rect.height / 2, 40);
     if (Math.random() < 0.5) {
       S.goldBoostUntil = now() + E.GOLDEN.boostSeconds * 1000;
       toast(`Pigeon doré : revenus ×${E.GOLDEN.boostMult} pendant ${E.GOLDEN.boostSeconds} s !`);
@@ -489,7 +494,9 @@
   async function watchAd(placement, reward) {
     if (S.premium) { reward(); return; }
     if (adsLeft() <= 0) { toast("Plus de pub aujourd'hui. Reviens demain !"); return; }
+    if (AU) AU.duck("ad", true);
     const ok = await M.rewarded(placement);
+    if (AU) AU.duck("ad", false);
     if (ok) { S.ads.n++; reward(); } else toast("Pas de récompense cette fois : la pub n'a pas été regardée jusqu'au bout.");
   }
   function simulatedAd(placement) { // web build only: a 3-second stand-in for a real rewarded ad
@@ -511,7 +518,7 @@
       openModal(`<h2>Demande à un adulte</h2><p style="text-align:center">Un adulte doit répondre pour continuer : combien font <b>${a} × ${b}</b> ?</p>
         <div class="gate"><input id="gateIn" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Réponse"></div>
         <div class="btns"><button class="btn btn-ghost" id="gateNo">Annuler</button><button class="btn btn-buy" id="gateOk">Valider</button></div>`, false);
-      $("#gateOk").addEventListener("click", () => { const ok = Number($("#gateIn").value) === a * b; closeModal(); if (!ok) toast("Ce n'est pas la bonne réponse."); resolve(ok); });
+      $("#gateOk").addEventListener("click", () => { const ok = Number($("#gateIn").value) === a * b; closeModal(); if (!ok) { toast("Ce n'est pas la bonne réponse."); sfx("deny"); } resolve(ok); });
       $("#gateNo").addEventListener("click", () => { closeModal(); resolve(false); });
     });
   }
@@ -527,7 +534,7 @@
     if (key === "gems500") S.gems += 500;
     if (key === "gems1500") S.gems += 1500;
     if (key === "premium") { S.premium = true; fillIncubator(); }
-    toast("Merci ! Achat reçu."); burstAt(null, 80); sfx("level"); saveAll(); renderTab();
+    toast("Merci ! Achat reçu."); burstAt(null, 80); sfx("cash"); stinger(1); saveAll(); renderTab();
   }
 
   // ================================================================ quests, daily, prestige
@@ -557,7 +564,7 @@
   function claimQuest(id) {
     const q = E.QUESTS.find((x) => x.id === id);
     if (!q || S.questsClaimed.includes(id) || !questReady(q)) return;
-    S.questsClaimed.push(id); S.gems += q.gems; sfx("level"); burstAt(null, 30);
+    S.questsClaimed.push(id); S.gems += q.gems; sfx("cash"); burstAt(null, 40);
     toast(`Objectif réussi : +${q.gems} gemmes`);
     if (q.egg) addEgg(q.egg, "objectif");
     renderTab();
@@ -574,7 +581,7 @@
     const d = dailyInfo(); if (!d.can) return;
     const g = E.DAILY[d.next - 1] * (double ? 2 : 1);
     S.gems += g; S.daily = { last: d.today, streak: d.next };
-    toast(`Coffre du jour ${d.next} : +${g} gemmes`); sfx("level"); burstAt(null, 50);
+    toast(`Coffre du jour ${d.next} : +${g} gemmes`); sfx("milestone"); stinger(1); shake(false); burstAt(null, 70);
     if (E.DAILY_EGGS[d.next]) addEgg(E.DAILY_EGGS[d.next], `coffre du jour ${d.next}`);
     renderTab();
   }
@@ -592,13 +599,14 @@
     const card = document.createElement("div"); card.className = "city-card";
     card.innerHTML = `<div><small>Bienvenue à</small>${cityName()}<small>+${gain} plumes d'or</small></div>`;
     document.body.appendChild(card); setTimeout(() => card.remove(), 2300);
-    applyCity(); buildRoutes(); switchTab("routes"); sfx("level"); setTimeout(() => burstAt(null, 120), 600); saveAll();
+    applyCity(); buildRoutes(); switchTab("routes"); sfx("prestige"); stinger(2.4); setTimeout(() => { burstAt(null, 140); shake(true); }, 600); saveAll();
   }
   const cityName = () => E.PRESTIGE.cityNames[Math.min(S.prestiges, E.PRESTIGE.cityNames.length - 1)] + (S.prestiges >= E.PRESTIGE.cityNames.length ? " " + (S.prestiges - E.PRESTIGE.cityNames.length + 2) : "");
   function applyCity() {
     $("#cityName").textContent = cityName();
     document.body.style.setProperty("--tint", CITY_TINTS[S.prestiges % CITY_TINTS.length]);
     $("#skyline").innerHTML = skylineSVG(S.prestiges);
+    if (AU) AU.setCity(S.prestiges);
   }
 
   // ================================================================ loop
@@ -617,6 +625,7 @@
     requestAnimationFrame(frame);
   }
   function periodic(t) {
+    musicIntensity();
     if (t > rt.goldenAt) { rt.goldenAt = t + (E.GOLDEN.minDelay + Math.random() * (E.GOLDEN.maxDelay - E.GOLDEN.minDelay)) * 1000 * goldenFactor(); spawnGolden(); }
     if (!rt.cat && t > rt.catAt) { rt.catAt = t + 60000; spawnCat(); }
     if (rt.cat && t > rt.cat.until) catLeave(false);
@@ -651,8 +660,8 @@
       <p style="text-align:center">${pick(C.OFFLINE_JOKES)}<br>Absence : ${E.formatDuration(Math.min(seconds, offlineHours() * 3600))}${capped ? " (maximum atteint)" : ""}</p>
       <div class="row" style="justify-content:center"><svg width="38" height="38" viewBox="0 0 24 24"><use href="#i-coin"/></svg><span class="big-stat num">+${fmt(gain)}</span></div>
       <div class="btns"><button class="btn btn-ghost" id="offOk">Récupérer</button>${adButton("offAd", "×2")}</div>`, false);
-    $("#offOk").addEventListener("click", () => { earn(gain); closeModal(); coinFly($("#wallet"), 6); sfx("coin"); });
-    $("#offAd").addEventListener("click", () => watchAd("offline_x2", () => { earn(gain * 2); closeModal(); toast(`+${fmt(gain * 2)} pièces`); burstAt(null, 50); sfx("level"); }));
+    $("#offOk").addEventListener("click", () => { earn(gain); closeModal(); coinFly($("#wallet"), 8); sfx("cash"); });
+    $("#offAd").addEventListener("click", () => watchAd("offline_x2", () => { earn(gain * 2); closeModal(); toast(`+${fmt(gain * 2)} pièces`); burstAt(null, 60); sfx("cash"); }));
   }
 
   // ================================================================ art
@@ -781,13 +790,13 @@
 
   // ================================================================ fx: confetti, coin flights, wallet tween
   const fx = { canvas: null, ctx: null, parts: [], running: false };
-  function burstXY(x, y, n) {
+  function burstXY(x, y, n, palette) {
     if (reducedMotion) return;
     const app = $("#app").getBoundingClientRect();
     if (!fx.canvas) { fx.canvas = $("#fx"); fx.ctx = fx.canvas.getContext("2d"); }
     const dpr = window.devicePixelRatio || 1;
     if (fx.canvas.width !== Math.round(app.width * dpr)) { fx.canvas.width = Math.round(app.width * dpr); fx.canvas.height = Math.round(app.height * dpr); }
-    const cols = ["#FF5A4E", "#FFC93C", "#2DD4A7", "#8B5CF6", "#FF8FB1", "#4D8DFF"];
+    const cols = palette || ["#FF5A4E", "#FFC93C", "#2DD4A7", "#8B5CF6", "#FF8FB1", "#4D8DFF"];
     for (let k = 0; k < n; k++) {
       const a = Math.random() * Math.PI * 2, v = 3 + Math.random() * 6;
       fx.parts.push({ x: (x - app.left) * dpr, y: (y - app.top) * dpr, vx: Math.cos(a) * v * dpr, vy: (Math.sin(a) * v - 5) * dpr, r: Math.random() * 6, vr: (Math.random() - .5) * .4, w: (5 + Math.random() * 5) * dpr, h: (3 + Math.random() * 3) * dpr, c: pick(cols), life: 70 + Math.random() * 40 });
@@ -836,8 +845,8 @@
     const s = document.createElement("span"); s.className = "stamp" + (miss ? " miss" : ""); s.textContent = text;
     s.addEventListener("animationend", () => s.remove()); c.lane.appendChild(s);
   }
-  function coinPop(c, amount) {
-    const s = document.createElement("span"); s.className = "coin-pop num"; s.textContent = "+" + fmt(amount);
+  function coinPop(c, amount, big) {
+    const s = document.createElement("span"); s.className = "coin-pop num" + (big ? " big" : ""); s.textContent = "+" + fmt(amount);
     s.addEventListener("animationend", () => s.remove()); c.lane.appendChild(s);
   }
 
@@ -848,7 +857,7 @@
     for (const k in cards) delete cards[k];
     E.ROUTES.forEach((r, i) => {
       const el = document.createElement("article");
-      el.className = "route card"; el.dataset.route = r.id;
+      el.className = "route card"; el.dataset.route = r.id; el.style.setProperty("--rc", ROUTE_COLORS[i][0]);
       el.innerHTML = `<div class="art"><div class="loft-host"></div><button class="crew-btn" aria-label="Pigeon star de ${r.name}"></button></div>
         <div class="head"><span class="name">${r.name}</span><span class="lvl num"></span></div>
         <div class="lane" role="button" tabindex="0" aria-label="Piste ${r.name}">${pigeonSVG(skinLook(), r.parcel)}${DEST}<div class="hint"></div></div>
@@ -919,6 +928,9 @@
       }
       if (c.hint._h !== hint) {
         c.hint.innerHTML = hint; c.hint._h = hint;
+        const asleep = !isAwake(r.id);
+        if (asleep && c._asleep === false) sfx("snore");
+        c._asleep = asleep;
         const z = $(".zzz", c.lane);
         if (!isAwake(r.id) && !z) { const s = document.createElement("span"); s.className = "zzz"; s.textContent = "Zzz"; c.lane.appendChild(s); }
         if (isAwake(r.id) && z) z.remove();
@@ -927,12 +939,16 @@
   }
   function drawLanes() {
     if (rt.tab !== "routes") return;
+    const boostNow = hasBoost();
     for (const r of E.ROUTES) {
       const c = cards[r.id]; if (!c || c.el.hidden) continue;
       if (!c.laneW) c.laneW = c.lane.clientWidth;
       const fly = (rt.running[r.id] || S.mgr[r.id]) && isAwake(r.id) && !(rt.cat && rt.cat.route === r.id);
       const p = rt.running[r.id] || S.mgr[r.id] ? Math.min(rt.prog[r.id], 1) : 0;
       c.pigeon.style.setProperty("--x", (p * Math.max(0, c.laneW - 86)).toFixed(1) + "px");
+      c.pigeon.style.setProperty("--y", (fly ? -Math.sin(p * Math.PI) * 7 : 0).toFixed(1) + "px");
+      const boosted = boostNow && fly;
+      if (c._boost !== boosted) { c._boost = boosted; c.lane.classList.toggle("boosted", boosted); }
       if (c._fly !== fly) { c._fly = fly; c.pigeon.classList.toggle("flying", fly); }
       const win = rt.running[r.id] && canStamp(r) && !rt.stamped[r.id] && p >= 1 - stampWindow(r);
       if (c._win !== win) { c._win = win; c.lane.classList.toggle("window", win); if (win && !S.tips.stamp && S.tutorial >= 5 && $("#modal").hidden) stampTip(r); }
@@ -995,7 +1011,7 @@
       const ready = eggReady(x), left = (x.end - now()) / 1000, frac = 1 - Math.max(0, left) / ((x.end - x.start) / 1000 || 1);
       if (el._ready !== ready) { el._ready = ready; el.classList.toggle("ready", ready); for (const b of el.querySelectorAll(".wait")) b.hidden = ready; for (const b of el.querySelectorAll(".go")) b.hidden = !ready; }
       const crack = ready ? 2 : frac > 0.5 ? 1 : 0;
-      if (el._crack !== crack) { el._crack = crack; $(".egg-host", el).innerHTML = eggSVG(x.type, crack); }
+      if (el._crack !== crack) { if (el._crack !== undefined && crack > el._crack) sfx("crack"); el._crack = crack; $(".egg-host", el).innerHTML = eggSVG(x.type, crack); }
       $(".t", el).textContent = ready ? "Prêt à éclore !" : E.formatDuration(left);
     }
     const pg = host.querySelector("#prestigeGain"); if (pg) pg.textContent = "+" + prestigeGain();
@@ -1115,12 +1131,12 @@
       const g = offlineRate() * 3600;
       if (S.gems < 30) return;
       if (g <= 0) { toast("Engage d'abord un chef : le saut temporel utilise ses livraisons."); return; }
-      S.gems -= 30; earn(g); toast(`Saut temporel : +${fmt(g)} pièces`); coinFly($("#warpBtn"), 10); sfx("level"); renderTab();
+      S.gems -= 30; earn(g); toast(`Saut temporel : +${fmt(g)} pièces`); coinFly($("#warpBtn"), 10); sfx("cash"); renderTab();
     });
     for (const b of host.querySelectorAll("[data-skin]")) b.addEventListener("click", () => {
       const k = SKINS.find((x) => x.id === b.dataset.skin);
       if (!k || S.gems < k.cost) return;
-      S.gems -= k.cost; S.skinsOwned.push(k.id); S.skin = k.id; applySkin(); toast(`Nouveau look : ${k.name} !`); burstAt(b, 30); sfx("level"); renderTab(); saveAll();
+      S.gems -= k.cost; S.skinsOwned.push(k.id); S.skin = k.id; applySkin(); toast(`Nouveau look : ${k.name} !`); burstAt(b, 40); sfx("milestone"); renderTab(); saveAll();
     });
     for (const b of host.querySelectorAll("[data-equip]")) b.addEventListener("click", () => { S.skin = b.dataset.equip; applySkin(); renderTab(); });
     for (const b of host.querySelectorAll("[data-iap]")) b.addEventListener("click", () => buyIap(b.dataset.iap));
@@ -1129,12 +1145,15 @@
 
   // ================================================================ modal, toast, settings, age gate
   function openModal(html, closable = true) {
+    const wasOpen = !$("#modal").hidden;
     $("#sheet").innerHTML = html;
     $("#modal").hidden = false;
+    if (AU) AU.duck("modal", true);
+    if (!wasOpen) sfx("open");
     $("#modal").dataset.closable = closable ? "1" : "";
     for (const b of $("#sheet").querySelectorAll("[data-close]")) b.addEventListener("click", closeModal);
   }
-  function closeModal() { $("#modal").hidden = true; $("#sheet").innerHTML = ""; if (rt.adTimer) { clearInterval(rt.adTimer); rt.adTimer = null; } }
+  function closeModal() { $("#modal").hidden = true; $("#sheet").innerHTML = ""; if (AU) AU.duck("modal", false); if (rt.adTimer) { clearInterval(rt.adTimer); rt.adTimer = null; } }
   $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal" && $("#modal").dataset.closable) closeModal(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#modal").hidden && $("#modal").dataset.closable) closeModal(); });
   function toast(msg) {
@@ -1152,7 +1171,9 @@
 
   function openSettings() {
     openModal(`<h2>Réglages</h2>
-      <div class="row"><div class="grow"><div class="title">Sons</div><div class="sub">Bruitages de pièces, de tampons et de chat</div></div><button class="btn btn-ghost" id="sndBtn">${S.sound ? "Activés" : "Coupés"}</button></div>
+      <div class="row"><div class="grow"><label class="title" for="musVol">Musique</label><input type="range" id="musVol" class="slider" min="0" max="100" value="${Math.round(S.musicVol * 100)}"></div></div>
+      <div class="row"><div class="grow"><label class="title" for="sfxVol">Bruitages</label><input type="range" id="sfxVol" class="slider" min="0" max="100" value="${Math.round(S.sfxVol * 100)}"></div></div>
+      <p class="note">Sur iPhone, le bouton silencieux coupe aussi le son du jeu.</p>
       <div class="row"><div class="grow"><div class="title">Rappel de pause</div><div class="sub">Un petit message après 45 min de jeu</div></div><button class="btn btn-ghost" id="pauseBtn">${S.pauseReminder ? "Activé" : "Coupé"}</button></div>
       <div class="row"><div class="grow"><div class="title">Sauvegarde</div><div class="sub">${cloud.doc ? "Automatique, sur cet appareil et dans ton compte" : "Automatique, sur cet appareil"}</div></div></div>
       <div class="row"><div class="grow"><div class="title">Âge</div><div class="sub">${S.kid ? "Mode enfant : pubs non personnalisées, achats protégés" : "Mode standard"}</div></div><button class="btn btn-ghost" id="ageBtn">Modifier</button></div>
@@ -1160,7 +1181,10 @@
       <div class="row"><div class="grow"><div class="title">Recommencer à zéro</div><div class="sub">Efface toute la progression</div></div><button class="btn btn-ghost" id="resetBtn">Effacer</button></div>
       <p class="note">Pigeon Express · version ${SAVE_VERSION}.0 · ${M.native ? "app" : "web : pubs simulées, achats dans l'app"}</p>
       <div class="btns"><button class="btn btn-buy" data-close>Fermer</button></div>`);
-    $("#sndBtn").addEventListener("click", (e) => { S.sound = !S.sound; e.currentTarget.textContent = S.sound ? "Activés" : "Coupés"; if (S.sound) sfx("buy"); });
+    const vols = () => { S.musicVol = $("#musVol").value / 100; S.sfxVol = $("#sfxVol").value / 100; if (AU) { AU.unlock(); AU.setVolumes(S.musicVol, S.sfxVol); } };
+    $("#musVol").addEventListener("input", vols);
+    $("#sfxVol").addEventListener("input", vols);
+    $("#sfxVol").addEventListener("change", () => sfx("coin", { route: 2 }));
     $("#pauseBtn").addEventListener("click", (e) => { S.pauseReminder = !S.pauseReminder; e.currentTarget.textContent = S.pauseReminder ? "Activé" : "Coupé"; });
     $("#ageBtn").addEventListener("click", async () => { closeModal(); if (await parentalGate()) ageGate(() => {}); });
     $("#tutoBtn").addEventListener("click", () => { closeModal(); switchTab("routes"); setTutorial(S.mgr.lettres ? 4 : 0); });
@@ -1223,25 +1247,22 @@
   }
   $("#main").addEventListener("scroll", () => { if (S.tutorial < 5) placeCoach(); }, { passive: true });
 
-  // ================================================================ sound (tiny synth, starts after first touch)
-  let ac = null;
-  function sfx(kind) {
-    if (!S.sound) return;
-    try {
-      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
-      if (ac.state === "suspended") ac.resume();
-      const seq = { coin: [[1320, .05, "sine", .025]], send: [[520, .06, "triangle", .05]], buy: [[660, .06, "sine", .06], [990, .08, "sine", .06]],
-        level: [[660, .07, "sine", .06], [880, .07, "sine", .06], [1320, .12, "sine", .06]], stamp: [[180, .08, "square", .05], [1200, .06, "sine", .05]],
-        meow: [[700, .18, "sawtooth", .03, 420]], hatch: [[400, .06, "triangle", .06], [800, .06, "triangle", .06], [1600, .14, "sine", .06]], tab: [[880, .03, "sine", .02]] }[kind] || [];
-      let t = ac.currentTime;
-      for (const [f, d, type, vol, glide] of seq) {
-        const o = ac.createOscillator(), g = ac.createGain();
-        o.type = type; o.frequency.setValueAtTime(f, t); if (glide) o.frequency.exponentialRampToValueAtTime(glide, t + d);
-        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-        o.connect(g).connect(ac.destination); o.start(t); o.stop(t + d + 0.02); t += d * 0.8;
-      }
-    } catch (e) { /* audio unavailable */ }
+  // ================================================================ sound (audio.js: music + effects)
+  const AU = window.AUDIO;
+  function sfx(name, opts) { if (AU) AU.sfx(name, opts); }
+  function stinger(sec) { if (AU) AU.stinger(sec || 1.2); }
+  function shake(big) {
+    if (reducedMotion) return;
+    const a = $("#app"); a.classList.remove("shake-s", "shake-l"); void a.offsetWidth; a.classList.add(big ? "shake-l" : "shake-s");
   }
+  function banner(text, sub) {
+    if (reducedMotion) { toast(text); return; }
+    const b = document.createElement("div"); b.className = "banner";
+    b.innerHTML = `<div>${text}${sub ? `<small>${sub}</small>` : ""}</div>`;
+    b.addEventListener("animationend", () => b.remove()); $("#app").appendChild(b);
+  }
+  const hasBoost = () => { const t = now(); return S.adBoostUntil > t || S.goldBoostUntil > t || S.comboBoostUntil > t; };
+  function musicIntensity() { if (AU) AU.setIntensity(!S.birthYear ? 0 : hasBoost() ? 2 : 1); }
 
   // ================================================================ boot
   function afterLoad(fromCloud) {
@@ -1266,7 +1287,9 @@
   $("#levelChip").addEventListener("click", () => switchTab("empire"));
   $("#letterChip").addEventListener("click", openLetter);
   $("#settingsBtn").addEventListener("click", openSettings);
-  document.addEventListener("visibilitychange", () => { if (document.hidden) saveAll(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) saveAll(); if (AU) AU.suspend(document.hidden); });
+  const unlockAudio = () => { if (AU) { AU.setVolumes(S.musicVol, S.sfxVol); AU.unlock(); musicIntensity(); } };
+  for (const ev of ["pointerdown", "touchend", "keydown"]) document.addEventListener(ev, unlockAudio, { capture: true, passive: true });
   window.addEventListener("pagehide", saveAll);
 
   S = loadLocal() || freshState();
@@ -1276,5 +1299,5 @@
   initCloud();
 
   // Test hook for automated checks (no effect on play).
-  window.__pigeon = { get state() { return S; }, rt, step, E, addEgg, spawnCat, newLetter, laneTap, periodic };
+  window.__pigeon = { get state() { return S; }, rt, step, E, addEgg, spawnCat, newLetter, laneTap, periodic, banner, shake };
 })();

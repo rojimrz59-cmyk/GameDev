@@ -31,7 +31,7 @@
   --overlay: rgba(5,3,15,.7); color-scheme: dark; }
 
 html, body { height: 100%; overscroll-behavior: none; }
-body { margin: 0; background: linear-gradient(var(--tint), var(--tint)), linear-gradient(180deg, var(--sky-top), var(--sky-bot) 50%); background-color: var(--sky-bot);
+body { margin: 0; background: linear-gradient(var(--tint), var(--tint)), radial-gradient(circle at 12% 88%, rgba(255,143,177,.28), transparent 38%), radial-gradient(circle at 88% 72%, rgba(45,212,167,.24), transparent 38%), radial-gradient(circle at 50% 104%, rgba(255,201,60,.3), transparent 45%), linear-gradient(180deg, var(--sky-top), var(--sky-bot) 50%); background-color: var(--sky-bot);
   color: var(--ink); font-family: var(--font-body); font-weight: 800; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
 button, select, input { font: inherit; color: inherit; }
 button { border: 0; background: none; cursor: pointer; touch-action: manipulation; }
@@ -94,6 +94,8 @@ main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-
 .btn-grape { background: var(--grape); color: #fff; }
 .btn-ghost { background: var(--card-2); color: var(--ink); }
 .btn:disabled { background: var(--off); color: var(--on-off); box-shadow: 0 2px 0 var(--line); cursor: default; }
+.btn.ready { animation: readyPulse 1.5s ease-in-out infinite; }
+@keyframes readyPulse { 50% { scale: 1.035; } }
 .btn.ready::after { content: ""; position: absolute; top: -10%; bottom: -10%; width: 30%; left: -40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent); animation: shine 2.6s ease-in-out infinite; }
 @keyframes shine { 0%, 55% { left: -40%; } 85%, 100% { left: 120%; } }
 
@@ -114,7 +116,14 @@ main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-
 .route .lvl { color: var(--ink-soft); font-size: 13px; white-space: nowrap; }
 .lane { position: relative; height: 46px; border-radius: 16px; background: var(--lane); border: 3px solid var(--line); cursor: pointer; }
 .lane::before { content: ""; position: absolute; left: 14px; right: 40px; top: 50%; border-top: 3px dashed var(--lane-dash); }
-.lane .pigeon { position: absolute; top: 0; left: 0; width: 50px; height: 44px; transform: translateX(var(--x, 0px)); will-change: transform; }
+.lane .pigeon { position: absolute; top: 0; left: 0; width: 50px; height: 44px; transform: translate(var(--x, 0px), var(--y, 0px)); will-change: transform; }
+.route { background: color-mix(in srgb, var(--rc, #fff) 14%, var(--card)); }
+.route .lane { background: color-mix(in srgb, var(--rc, #fff) 24%, var(--lane)); }
+.route .name { text-shadow: 0 3px 0 color-mix(in srgb, var(--rc, #000) 60%, transparent); }
+.route .bar i { background: linear-gradient(90deg, var(--sun), color-mix(in srgb, var(--rc, #FFC93C) 80%, var(--sun))); }
+.lane.boosted { box-shadow: 0 0 0 3px var(--sun), 0 0 14px var(--sun); }
+.lane.boosted::before { border-top: 0; height: 6px; top: calc(50% - 3px); border-radius: 3px; background: repeating-linear-gradient(90deg, #FF5A4E 0 10px, #FFC93C 10px 20px, #2DD4A7 20px 30px, #4D8DFF 30px 40px, #A27BFF 40px 50px); background-size: 50px 6px; animation: rainbow .45s linear infinite; }
+@keyframes rainbow { to { background-position: 50px 0; } }
 .lane .dest { position: absolute; right: 4px; top: 5px; width: 32px; height: 32px; }
 .lane .dest .flag { transform-box: fill-box; transform-origin: 0% 100%; transition: transform .2s; }
 .lane.delivered .dest .flag { transform: rotate(-70deg); }
@@ -137,6 +146,7 @@ main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-
 @keyframes catOut { to { transform: translateX(260px) rotate(20deg); opacity: 0; } }
 @keyframes swish { to { transform: rotate(-25deg); } }
 .coin-pop { position: absolute; right: 34px; top: -6px; font-family: var(--font-display); font-size: 15px; color: var(--sun); -webkit-text-stroke: 1px var(--line); paint-order: stroke fill; pointer-events: none; animation: rise .8s ease-out forwards; white-space: nowrap; z-index: 4; }
+.coin-pop.big { font-size: 22px; color: var(--coral); }
 @keyframes rise { from { transform: translateY(6px) scale(.8); opacity: 1; } to { transform: translateY(-20px) scale(1.1); opacity: 0; } }
 .route .ms { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .route .ms-t { white-space: nowrap; color: var(--ink-soft); }
@@ -234,6 +244,10 @@ main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-
 .letter .from { font-family: var(--font-display); font-size: 18px; }
 .letter p { color: var(--ink); margin-top: 6px; }
 .ad-box { border-radius: 18px; background: var(--card-2); border: 3px dashed var(--line); height: 160px; display: grid; place-items: center; text-align: center; font-size: 15px; padding: 12px; }
+.sheet label.title { display: block; margin-bottom: 4px; }
+.slider { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 18px; border-radius: 999px; background: linear-gradient(90deg, var(--coral), var(--sun), var(--mint)); border: 3px solid var(--line); margin: 0; }
+.slider::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; border-radius: 50%; background: var(--card); border: 3px solid var(--line); box-shadow: 0 3px 0 var(--line); }
+.slider::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: var(--card); border: 3px solid var(--line); }
 .gate input, .sheet select { width: 100%; font-size: 22px; padding: 10px 12px; border-radius: 14px; border: 3px solid var(--line); background: var(--card-2); text-align: center; }
 #coach { position: absolute; inset: 0; z-index: 35; pointer-events: none; }
 #coach .hand { position: absolute; width: 46px; height: 46px; animation: tap 1s ease-in-out infinite; filter: drop-shadow(0 3px 0 rgba(0,0,0,.2)); }
@@ -241,6 +255,21 @@ main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-
 #coach .bubble { position: absolute; left: 14px; right: 14px; background: var(--ink); color: var(--card); border: 3px solid var(--line); border-radius: 20px; padding: 12px 14px; font-size: 15px; line-height: 1.35; display: flex; gap: 10px; align-items: flex-start; animation: popIn .35s cubic-bezier(.2,1.6,.4,1); }
 #coach .bubble span { flex: 1; }
 #coach .bubble button { pointer-events: auto; font-size: 12px; opacity: .8; padding: 4px; text-decoration: underline; }
+#app.shake-s { animation: shakeS .35s; }
+#app.shake-l { animation: shakeL .55s; }
+@keyframes shakeS { 20% { translate: -3px 1px; } 40% { translate: 3px -1px; } 60% { translate: -2px 0; } 80% { translate: 2px 1px; } }
+@keyframes shakeL { 10% { translate: -6px 2px; rotate: -.6deg; } 30% { translate: 6px -2px; rotate: .6deg; } 50% { translate: -4px 1px; rotate: -.3deg; } 70% { translate: 4px -1px; } 90% { translate: -2px 0; } }
+.banner { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 45; animation: bannerIn 1.7s cubic-bezier(.2,1.4,.4,1) forwards; }
+.banner div { font-family: var(--font-display); font-size: 40px; color: #fff; -webkit-text-stroke: 2px var(--line); paint-order: stroke fill; text-shadow: 0 4px 0 var(--line); background: linear-gradient(135deg, var(--coral), var(--sun) 55%, var(--mint)); border: 4px solid var(--line); border-radius: 26px; padding: 10px 26px; box-shadow: 0 6px 0 var(--line); rotate: -4deg; text-align: center; }
+.banner small { display: block; font-size: 18px; -webkit-text-stroke: 1px var(--line); }
+@keyframes bannerIn { 0% { scale: .3; opacity: 0; } 18% { scale: 1.12; opacity: 1; } 28% { scale: 1; } 80% { opacity: 1; translate: 0 0; } 100% { opacity: 0; translate: 0 -40px; } }
+.tabbar button[aria-selected="true"]::before { content: ""; position: absolute; top: 3px; left: 50%; width: 52px; height: 34px; margin-left: -26px; border-radius: 14px; background: color-mix(in srgb, var(--coral) 20%, transparent); z-index: -1; }
+.bunting { position: absolute; left: -10px; right: -10px; top: 46px; height: 26px; transform-origin: 50% 0; animation: sway 3.2s ease-in-out infinite alternate; }
+.bunting svg { width: 100%; height: 100%; }
+@keyframes sway { from { rotate: -.8deg; } to { rotate: .8deg; } }
+.balloon { position: absolute; width: 34px; height: 48px; animation: floaty 6s ease-in-out infinite alternate, driftB 90s linear infinite; }
+@keyframes floaty { to { translate: 0 -10px; } }
+@keyframes driftB { from { left: -40px; } to { left: 105%; } }
 #fx { position: absolute; inset: 0; pointer-events: none; z-index: 60; width: 100%; height: 100%; }
 .fly-coin { position: absolute; width: 26px; height: 26px; z-index: 61; pointer-events: none; }
 .city-card { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: var(--sky-top); animation: cityCard 2.2s ease forwards; pointer-events: none; }
@@ -258,6 +287,9 @@ main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-
       <div class="sun"><svg viewBox="0 0 120 120"><g stroke="#FFC93C" stroke-width="6" stroke-linecap="round" opacity=".8"><path d="M60 4v14M60 102v14M4 60h14M102 60h14M20 20l10 10M90 90l10 10M20 100l10-10M90 30l10-10"/></g><circle cx="60" cy="60" r="30" fill="#FFD54A" stroke="#2A1B3D" stroke-width="3"/><circle cx="50" cy="56" r="3" fill="#2A1B3D"/><circle cx="70" cy="56" r="3" fill="#2A1B3D"/><path d="M50 68q10 8 20 0" fill="none" stroke="#2A1B3D" stroke-width="3" stroke-linecap="round"/></svg></div>
       <svg class="cloud" style="top:44px;animation-delay:-20s" viewBox="0 0 96 34"><path d="M14 30h66a12 12 0 0 0 0-24 16 16 0 0 0-30-2 12 12 0 0 0-22 6 10 10 0 0 0-14 20z" fill="#fff" stroke="#2A1B3D" stroke-width="2.5" opacity=".9"/></svg>
       <svg class="cloud" style="top:100px;animation-delay:-52s;transform:scale(.7)" viewBox="0 0 96 34"><path d="M14 30h66a12 12 0 0 0 0-24 16 16 0 0 0-30-2 12 12 0 0 0-22 6 10 10 0 0 0-14 20z" fill="#fff" stroke="#2A1B3D" stroke-width="2.5" opacity=".9"/></svg>
+      <div class="bunting"><svg viewBox="0 0 400 26" preserveAspectRatio="none"><path d="M0 2Q200 26 400 2" fill="none" stroke="#2A1B3D" stroke-width="1.6"/><g stroke="#2A1B3D" stroke-width="1.4" stroke-linejoin="round"><path d="M16 4l6 14 6-12z" fill="#FF5A4E"/><path d="M56 8l6 14 6-12z" fill="#FFC93C"/><path d="M96 11l6 14 6-12z" fill="#2DD4A7"/><path d="M136 13l6 13 6-12z" fill="#4D8DFF"/><path d="M176 14l6 12 6-12z" fill="#A27BFF"/><path d="M216 14l6 12 6-12z" fill="#FF8FB1"/><path d="M256 13l6 13 6-13z" fill="#FF5A4E"/><path d="M296 11l6 14 6-14z" fill="#FFC93C"/><path d="M336 8l6 14 6-14z" fill="#2DD4A7"/><path d="M376 4l6 14 6-14z" fill="#4D8DFF"/></g></svg></div>
+      <svg class="balloon" style="top:96px;animation-delay:0s,-30s" viewBox="0 0 34 48"><path d="M17 2C8 2 2 9 2 17c0 9 9 15 13 21h4c4-6 13-12 13-21 0-8-6-15-15-15z" fill="#FF5A4E" stroke="#2A1B3D" stroke-width="2"/><path d="M17 2c-4 4-5 12-4 20s2 13 2 16M17 2c4 4 5 12 4 20s-2 13-2 16" fill="none" stroke="#FFC93C" stroke-width="3"/><path d="M13 40h8v6h-8z" fill="#C98B4E" stroke="#2A1B3D" stroke-width="1.6"/></svg>
+      <svg class="balloon" style="top:130px;width:26px;height:38px;animation-delay:-2s,-72s" viewBox="0 0 34 48"><path d="M17 2C8 2 2 9 2 17c0 9 9 15 13 21h4c4-6 13-12 13-21 0-8-6-15-15-15z" fill="#2DD4A7" stroke="#2A1B3D" stroke-width="2"/><path d="M17 2c-4 4-5 12-4 20s2 13 2 16M17 2c4 4 5 12 4 20s-2 13-2 16" fill="none" stroke="#FFFDF7" stroke-width="3"/><path d="M13 40h8v6h-8z" fill="#C98B4E" stroke="#2A1B3D" stroke-width="1.6"/></svg>
       <div class="skyline" id="skyline"></div>
     </div>
     <div class="hud-row">
@@ -327,4 +359,5 @@ main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-
 <script src="economy.js"></script>
 <script src="content.js"></script>
 <script src="ads.js"></script>
+<script src="audio.js"></script>
 <script src="game.js"></script>

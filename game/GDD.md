@@ -99,6 +99,18 @@ Les gemmes servent aux skins, aux sauts temporels et à l'éclosion rapide. Elle
 - **Animations** : battement d'ailes, drapeaux qui flottent, pigeonniers qui « respirent » et rebondissent à chaque palier, confettis, pièces qui volent vers le compteur, tampon qui s'écrase, chat qui remue la queue, œufs qui tremblent puis se fendillent, transitions entre onglets, carte de bienvenue à chaque nouvelle ville.
 - **Décor** : soleil souriant, nuages, ville en silhouette qui grandit à chaque déménagement, thème nuit automatique.
 
+## 8. Son
+
+- **Musique originale** synthétisée en direct (aucun fichier) : 16 mesures à 116 BPM, en Do majeur. Elle s'adapte au jeu en trois couches : calme (accueil), jeu (batterie et mélodie), boost (batterie plus dense et mélodie doublée à l'octave). Chaque ville change de tonalité.
+- **28 bruitages** :
+  - livraisons : roucoulement à l'envoi, pièces plus aiguës selon la route ;
+  - achats et progression : arpège d'achat qui monte quand on enchaîne, fanfares de palier et de niveau ;
+  - tampon : « thunk » plus une note qui monte avec le combo, « boing » quand c'est trop tôt ;
+  - personnages : miaulement et chatouilles de Moustache, ronflement et sifflet de réveil de Gérard, « boing » de Kevin ;
+  - événements : sonnette du courrier, papier froissé, œuf qui craque et éclosion, pigeon doré, caisse enregistreuse, fête, fanfare de déménagement.
+- **Mixage** : bus musique, bruitages et volume global, avec limiteur. La musique baisse sous les fenêtres et se coupe pendant les pubs. Petites variations de hauteur pour éviter la répétition.
+- **Niveaux mesurés** : crête à −3 dBFS, musique autour de −30 dB RMS, mélange chargé autour de −25 dB RMS. Le son se coupe quand l'app passe en arrière-plan. Les curseurs Musique et Bruitages sont dans les Réglages.
+
 ## Lancer et tester
 
 - Tests de l'économie et des textes : `node game/test.js`.
