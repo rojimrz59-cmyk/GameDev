@@ -1,0 +1,8 @@
+{
+  "appId": "com.pigeonexpress.game",
+  "appName": "Pigeon Express",
+  "webDir": "www",
+  "backgroundColor": "#7FD0FF",
+  "ios": { "contentInset": "never" },
+  "android": { "allowMixedContent": false }
+}

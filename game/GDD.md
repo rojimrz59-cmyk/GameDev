@@ -1,38 +1,40 @@
-# Pigeon Express — document de conception (MVP)
+# Pigeon Express — document de conception (v2)
 
-Statut : MVP jouable dans le navigateur (iPhone, Android, ordinateur). Chiffres issus de `economy.js`, rythme vérifié par `sim.js`.
+Statut : version 2 jouable dans le navigateur. Projet natif iOS/Android prêt à compiler dans `native/`. Chiffres issus de `economy.js`, textes de `content.js`, pubs et achats dans `ads.js`, rythme vérifié par `sim.js`.
 
-## 1. Trois concepts
+## 1. Concept
 
-| Concept | Principe en une phrase | Force | Faiblesse |
-|---|---|---|---|
-| **Pigeon Express** | Tu montes une messagerie à pigeons voyageurs : lettres, puis colis, pizzas, bouquets, bijoux. | Compris en 5 s (un pigeon livre = des pièces). Personnages attachants qui portent les cosmétiques. Thème peu exploité. | Le thème « courrier » peut paraître enfantin pour un public de plus de 35 ans. |
-| **Répar'Empire** | Tu répares des objets cassés que les clients déposent, du grille-pain au robot. | Angle écolo dans l'air du temps, grande variété d'objets. | Il faut expliquer la boucle (diagnostic, pièces, réparation), et les objets se prêtent mal aux cosmétiques. |
-| **Serre lunaire** | Tu cultives des plantes lumineuses sur la Lune et tu les expédies vers la Terre. | Très visuel, ambiance relaxante. | Des plantes forment des personnages faibles, la fantaisie spatiale demande un temps de compréhension, et l'art coûte plus cher. |
+Tu diriges une messagerie à pigeons voyageurs. Tu commences avec des lettres, puis tu ouvres les cartes postales, les colis, les pizzas volantes, les bouquets et les bijoux. Tu passes ensuite du Village à la Mégapole.
 
-## 2. Choix : Pigeon Express
+Public : tout public dès 6 ans (PEGI 3, App Store 4+), sans exclure les adultes. Humour bienveillant, pas de violence.
 
-- **Compréhension immédiate.** L'action (envoyer un pigeon), le retour (il traverse l'écran et une pièce sort) et la progression (le pigeonnier grandit) sont visibles sans aucun texte.
-- **Monétisation cosmétique naturelle.** Chaque pigeon à l'écran porte la tenue achetée (casquette, lunettes, couronne, écharpe). Le joueur voit ce qu'il a payé des milliers de fois par session. C'est le levier le moins agressif, et il ne casse pas l'équilibre.
-- **Production peu coûteuse.** Tout le jeu tient en formes vectorielles simples, sans animation squelettale ni 3D.
-- **Contenu extensible.** Chaque nouvelle ville ou nouveau colis est un ajout de données, pas de code.
+## 2. Mécaniques originales (v2)
 
-Confiance : moyenne. Ce choix repose sur un raisonnement, pas sur des données de marché. Ce qui le ferait changer : un test d'icône ou de créa publicitaire (CPI sur 3 visuels) où Répar'Empire convertirait nettement mieux.
+| Mécanique | Règle | Pourquoi elle accroche |
+|---|---|---|
+| **Pigeons stars** | 12 pigeons à collectionner. Chacun a un défaut rigolo qui est aussi un pouvoir : Gérard livre ×3 mais s'endort, il faut le toucher pour le réveiller ; Kevin se trompe d'adresse et revient avec des cadeaux ×5 ; Mamie Plume livre ×3 pendant l'absence… Un pigeon star par route. Les doublons ajoutent des étoiles (3 max). | Collection, choix d'affectation (combo de pouvoirs), personnages mémorables |
+| **Couveuse** | Les œufs (tacheté 5 min, étoilé 30 min, doré 2 h) se gagnent aux paliers 25/100/300, avec les objectifs, le coffre des jours 4 et 7, le courrier et le chat. Chances affichées. Jamais vendus contre de l'argent. | Raison de revenir (minuteurs), surprise à l'éclosion |
+| **Tampon parfait** | Sur les routes de 1,5 s ou plus, la boîte aux lettres brille en fin de vol. La toucher à ce moment donne ×3. Combo de 5 : revenus ×2 pendant 30 s. Trop tôt : le combo retombe à zéro. | Un geste d'adresse dans un jeu idle : jouer activement rapporte plus |
+| **Le chat Moustache** | Dès le niveau 7, il fait la sieste sur une piste et bloque les livraisons. 5 chatouilles le font fuir en lâchant des pièces (et un œuf dans 15 % des cas). Le Ninja Gris l'évite. | Antagoniste comique, événement à réaction rapide |
+| **Courrier des clients** | Dès le niveau 5, des lettres arrivent toutes les 4 à 7 min (18 lettres : escargot pressé, fantôme timide, dinosaure en retard…). 2 choix, chacun avec sa récompense et une chute drôle. | Humour, narration, micro-décision |
+| Pigeon doré | Passe toutes les 70 à 150 s. Le toucher donne un boost ×3 ou 90 s de revenus. | Réflexe, surprise |
 
-## 3. Règles et boucle de jeu
+## 3. Boucles de jeu
 
-**Boucle de 10 secondes** : toucher une piste → le pigeon livre → +pièces → acheter un niveau.
-**Boucle de 10 minutes** : engager un chef (la route devient automatique) → ouvrir la route suivante → franchir un palier (×2) → acheter une amélioration.
-**Boucle quotidienne** : revenir → toucher les gains hors ligne (8 h max, 50 %) → ouvrir le coffre du jour (série de 7 jours) → remplir les objectifs → déménager quand le revenu stagne.
+- **10 s** : envoyer, tamponner, acheter un niveau.
+- **10 min** : chef, nouvelle route (fête d'ouverture), palier (×2 + œuf), lettre, chat.
+- **Chaque jour** : gains d'absence (8 h à 50 %, 12 h en Premium), coffre (série de 7 jours), éclosions, objectifs, déménagement.
 
-Règles :
-- 6 routes. Une route rapporte `revenu × niveau × 2^paliers × améliorations × bonus`.
-- Prix du niveau suivant : `prix_base × croissance^niveau`, avec une croissance de 1,12 à 1,17.
-- Paliers aux niveaux 10, 25, 50, 100, 150, 200, 300 et 400 : chacun double le revenu de la route et ajoute un élément au pigeonnier (drapeau, étage, horloge, toit doré, étoiles, guirlande).
-- Un chef automatise sa route, et seules les routes avec chef produisent hors ligne.
-- Le pigeon doré traverse l'écran toutes les 70 à 150 s. Si on le touche, il donne soit un boost ×3 pendant 30 s, soit 90 s de revenus.
-- Déménagement (prestige) : on repart de zéro, on gagne `floor(√(pièces gagnées dans la ville / 40 M))` plumes d'or, et chaque plume rapporte +5 % de revenus pour toujours.
-- Niveau joueur : chaque livraison donne de l'XP (de 1 à 6 selon la route), et chaque niveau donne 5 gemmes.
+Les mécaniques arrivent une par une, pour que le jeu reste compréhensible en 30 s :
+
+| Moment | Ce qui se débloque |
+|---|---|
+| Tutoriel | Envoyer, acheter, chef |
+| Route 2 | Tampon parfait (explication à la première fenêtre) |
+| Palier 25 | Premier œuf |
+| Niveau 5 | Courrier |
+| Niveau 7 | Chat Moustache |
+| Environ 1 h | Déménagement |
 
 ## 4. Économie
 
@@ -41,75 +43,64 @@ Règles :
 | Lettres | 4 | 1,12 | 1 | 1 s | 100 |
 | Cartes postales | 100 | 1,13 | 14 | 3 s | 2 500 |
 | Colis express | 2 500 | 1,14 | 150 | 6 s | 60 K |
-| Pizzas volantes | 70 K | 1,15 | 1 900 | 12 s | 1,6 M |
-| Bouquets | 2,2 M | 1,16 | 26 K | 24 s | 50 M |
-| Bijoux précieux | 80 M | 1,17 | 380 K | 48 s | 1,8 B |
+| Pizzas volantes | 140 K | 1,15 | 1 900 | 12 s | 3,2 M |
+| Bouquets | 3,5 M | 1,16 | 26 K | 24 s | 80 M |
+| Bijoux précieux | 120 M | 1,17 | 380 K | 48 s | 3 B |
 
-Il y a 10 améliorations à usage unique, de 6 K à 100 T pièces, avec des multiplicateurs ×2 à ×3, ciblant une route ou toutes.
+Prestige : `plumes = floor(√(pièces gagnées dans la ville / 100 M))`, et chaque plume donne +5 % de revenus pour toujours.
 
-**Rythme simulé** (joueur actif qui achète toujours le meilleur rapport gain/prix, `node game/sim.js 4`) :
+Rythme simulé (`node game/sim.js 3`), avec l'équipage et les tampons :
 
-| Moment | 1re ville | 2e ville (12 plumes) |
+| Moment | 1re ville | 2e ville (10 plumes) |
 |---|---|---|
-| Premier chef | 41 s | 41 s |
-| Route 2 | 1 min 50 | 1 min 16 |
-| Route 3 | 3 min 30 | 1 min 50 |
-| Route 4 | 9 min | 6 min |
-| Route 5 | 19 min | 11 min |
-| Route 6 | 1 h 10 | 45 min |
-| Plumes disponibles à 2 h | 8 (+40 %) | 13 |
+| Route 3 | 3 min 21 | 1 min 50 |
+| Route 4 | 11 min | 8 min 43 |
+| Route 5 | 15 min 36 | 11 min |
+| Route 6 | 44 min | 33 min 41 |
+| Plumes à 2 h | 8 | 12 |
 
-Après environ 2 h, le revenu plafonne : c'est le moment voulu pour déménager. Les gains hors ligne sont plafonnés à 8 h et payés à 50 %, pour que jouer rapporte plus qu'attendre sans pénaliser la nuit.
+## 5. Monétisation
 
-**Gemmes gratuites** : environ 100 le premier jour (niveaux + objectifs), puis 10 à 50 par jour avec le coffre. Utilisations : saut temporel de 1 h (30), skins (60 à 300).
+Il n'y a que des pubs récompensées. Le joueur choisit toujours de les regarder, avec un plafond de 12 par jour :
 
-## 5. Progression et contenus à débloquer
+| Moment | Récompense |
+|---|---|
+| Retour après absence | Gains ×2 |
+| Coffre du jour | ×2 |
+| Couveuse | Éclosion immédiate |
+| Nouvelle route ouverte | Fête : ×2 pendant 10 min |
+| Déménagement | Plumes ×1,5 |
+| Lettre | Récompense ×2 |
+| Boutique | Boost ×2 pendant 30 min (cumul 4 h) |
 
-- **Villes** : Village → Bourg → Ville → Cité → Métropole → Capitale → Mégapole. Chaque déménagement teinte le ciel.
-- **Pigeonniers** : 8 paliers visuels par route.
-- **Objectifs** : 20 objectifs en chaîne (3 visibles à la fois), du tutoriel jusqu'au 3e déménagement.
-- **Skins** : Classique, Facteur, Aviateur, Royal, Flamboyant.
-- **Prochaines couches** (hors MVP) : événements hebdomadaires (Saint-Valentin : la route Bouquets ×5 et un skin limité), managers à pouvoirs, cartes de ville à décorer, classement entre amis.
+Achats intégrés (RevenueCat) :
+- Pack de démarrage : 1,99 € ;
+- 500 gemmes : 4,99 € ;
+- 1 500 gemmes : 9,99 € ;
+- Pass Premium : 4,99 €/mois. Il donne ×2 revenus, 12 h d'absence, une couveuse en plus et tous les bonus sans pub.
 
-## 6. Identité visuelle
+Les gemmes servent aux skins, aux sauts temporels et à l'éclosion rapide. Elles n'achètent jamais un œuf.
 
-- **Ciel jour / nuit** : thème clair en bleu ciel, thème sombre en ciel nocturne, qui suit le réglage du téléphone.
-- **Couleurs** : chaque route a sa couleur (corail, orange, menthe, rose, lilas, bleu). Les boutons d'achat sont corail, les chefs menthe, les récompenses jaune soleil, les gemmes violettes.
-- **Typographie** : Fredoka (titres, chiffres ronds et lisibles), Nunito (textes).
-- **Formes** : grosses cartes arrondies et boutons épais avec une ombre portée (effet « bouton à presser »), tous dans la zone du pouce.
-- **Mouvement** : le pigeon bat des ailes et traverse la piste (c'est la barre de progression), les pièces montent, le pigeonnier fait un rebond à chaque palier. Les animations sont coupées si l'option « réduire les animations » est active.
+## 6. Protection des enfants (obligatoire pour les stores)
 
-## 7. Monétisation (prévue, simulée dans le MVP)
+- Âge demandé au premier lancement, sans valeur par défaut.
+- 13 ans ou moins :
+  - pubs marquées pour enfants et non personnalisées ;
+  - chaque achat demande la réponse d'un adulte (contrôle parental) ;
+  - rappel de pause après 45 min.
+- Aucune boîte surprise payante, aucune pub imposée, aucun compte à rebours d'offre payante.
+- Politique de confidentialité : `docs/confidentialite.html`.
 
-| Levier | Où | Garde-fou |
-|---|---|---|
-| Pub récompensée | Gains hors ligne ×2, boost ×2 30 min (cumul 4 h), coffre du jour ×2 | Toujours facultative, aucune pub imposée |
-| Achats de gemmes | 500 gemmes à 4,99 € | Tout s'obtient aussi en jouant |
-| Pack de démarrage | 1,99 €, proposé une fois | — |
-| Cosmétiques | Skins de pigeons | Aucun effet sur l'économie |
-| Pass Premium | 4,99 €/mois : ×2 permanent, hors ligne 12 h, bonus sans pub | Le ×2 n'est pas nécessaire pour finir le contenu |
+## 7. Direction artistique
 
-## 8. Ce que contient le MVP
-
-Inclus et testé :
-- les 6 routes, les chefs, les paliers, les 10 améliorations ;
-- les objectifs, le niveau joueur, le coffre du jour, le pigeon doré, le déménagement ;
-- les 5 skins ;
-- la sauvegarde automatique (appareil, plus le compte Claude quand c'est disponible) et les gains hors ligne ;
-- le tutoriel interactif, les thèmes clair et sombre, la mise en page pour une seule main.
-
-Simulé : les publicités (compte à rebours de 3 s) et les achats intégrés (désactivés).
-
-Manquant pour publier sur l'App Store et le Play Store :
-- une coque native (Capacitor) ;
-- un SDK publicitaire (AdMob ou AppLovin MAX) ;
-- les achats natifs (StoreKit et Play Billing) ;
-- l'analytique (rétention J1/J7, entonnoir du tutoriel) ;
-- une horloge serveur pour les gains hors ligne, aujourd'hui basés sur l'horloge du téléphone (triche possible en avançant l'heure) ;
-- de la musique.
+- **Style cartoon « autocollant »** : contours prune épais, ombres pleines, boutons qu'on « enfonce ».
+- **Polices** : Lilita One (titres, compteur), Nunito (textes).
+- **Personnages** : pigeons ronds aux grands yeux et aux joues roses, chacun avec son accessoire (bonnet de nuit, bandeau, hélice, masque de ninja, couronne…).
+- **Animations** : battement d'ailes, drapeaux qui flottent, pigeonniers qui « respirent » et rebondissent à chaque palier, confettis, pièces qui volent vers le compteur, tampon qui s'écrase, chat qui remue la queue, œufs qui tremblent puis se fendillent, transitions entre onglets, carte de bienvenue à chaque nouvelle ville.
+- **Décor** : soleil souriant, nuages, ville en silhouette qui grandit à chaque déménagement, thème nuit automatique.
 
 ## Lancer et tester
 
-- Jouer : ouvrir `index.html` (avec `economy.js` et `game.js` à côté) via n'importe quel serveur web statique.
-- Tests de l'économie : `node game/test.js`.
-- Simulation de rythme : `node game/sim.js <heures> <plumes>`.
+- Tests de l'économie et des textes : `node game/test.js`.
+- Rythme : `node game/sim.js <heures> <plumes>`.
+- App native : voir `native/README.md`.
